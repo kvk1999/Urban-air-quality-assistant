@@ -1,0 +1,9 @@
+{
+  "name": "aetherguard-urban-air-quality-assistant",
+  "version": "1.0.0",
+  "description": "GenAI-Powered Winter Smog & Urban Air Quality Assistant",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}

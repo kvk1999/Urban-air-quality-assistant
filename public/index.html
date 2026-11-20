@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AetherGuard | GenAI Winter Smog & Urban Air Quality Assistant</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Chart.js for real-time visualization of diurnal inversion curves and emission impacts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            <path d="M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0"/>
+            <path d="M4 16c2-1 4-1 6 0s4 1 6 0 4-1 6 0"/>
+          </svg>
+        </div>
+        <div>
+          <h1>AetherGuard AI</h1>
+          <p class="subtitle">Winter Smog, Urban Resilience & Low-Emission Living Intelligence</p>
+        </div>
+      </div>
+      
+      <!-- Quick Status Strip -->
+      <div class="header-status" id="headerStatus">
+        <div class="status-chip high" id="inversionBadge">
+          <span class="pulsing-dot"></span>
+          <span>Inversion Alert: Severe Smog Blanket Active</span>
+        </div>
+        <div class="date-chip">
+          <span id="currentDate">Winter Season 2026</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="dashboard-grid">
+      <!-- Left Column: Location & Lifestyle Profile Setup -->
+      <section class="card config-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="badge-num">1</span>
+            <h3>Family & Household Urban Profile</h3>
+          </div>
+          <span class="subtext">Configure your environment to run GenAI synthesis</span>
+        </div>
+
+        <form id="profileForm" class="profile-form">
+          <div class="form-group">
+            <label for="citySelect">Target Urban Smog Hotspot</label>
+            <div class="select-wrapper">
+              <select id="citySelect" name="city">
+                <option value="delhi" selected>Delhi NCR (India) - AQI ~380+ (Severe Stagnation)</option>
+                <option value="canberra">Canberra (Australia) - AQI ~78 (Valley Inversion & Woodsmoke)</option>
+                <option value="stockholm">Stockholm (Sweden) - AQI ~48 (Sub-Arctic Coastal Ventilation)</option>
+                <option value="beijing">Beijing (China) - AQI ~158 (Winter Inversion)</option>
+                <option value="milan">Milan & Po Valley (Italy) - AQI ~172 (Alpine Basin Trap)</option>
+                <option value="kathmandu">Kathmandu (Nepal) - AQI ~215 (Valley Thermal Cap)</option>
+                <option value="london">London (UK) - AQI ~74 (Winter Woodsmoke & NO2)</option>
+                <option value="losangeles">Los Angeles (USA) - AQI ~92 (Coastal Basin Inversion)</option>
+                <option value="chicago">Chicago (USA) - AQI ~62 (Lake Basin Chills)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Household Vulnerability Profile</label>
+            <div class="pill-group" id="familyProfileGroup">
+              <label class="checkbox-pill active">
+                <input type="checkbox" name="familyProfile" value="infant" checked>
+                <span>👶 Toddler / Infant (< 5 yrs)</span>
+              </label>
+              <label class="checkbox-pill active">
+                <input type="checkbox" name="familyProfile" value="elderly" checked>
+                <span>👵 Senior Citizen (> 65 yrs)</span>
+              </label>
+              <label class="checkbox-pill active">
+                <input type="checkbox" name="familyProfile" value="asthma" checked>
+                <span>🫁 Asthmatic / Bronchial Sensitive</span>
+              </label>
+              <label class="checkbox-pill">
+                <input type="checkbox" name="familyProfile" value="pet">
+                <span>🐕 Indoor Pets</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="housingType">Housing Envelope</label>
+              <select id="housingType" name="housingType">
+                <option value="older_apartment">Older Apartment (Single-Glaze Glass)</option>
+                <option value="modern_condo">Modern High-Rise (Double Glazed)</option>
+                <option value="independent_house" selected>Independent House / Villa</option>
+                <option value="ground_floor_flat">Ground Floor Unit (High Silt/Dust)</option>
+              </select>
+            </div>
+
+            <div class="form-group half">
+              <label for="commuteMode">Primary Daily Commute</label>
+              <select id="commuteMode" name="commuteMode">
+                <option value="car_solo" selected>Solo ICE Car (Gasoline / Diesel)</option>
+                <option value="two_wheeler">Two-Wheeler / Motorbike (Direct Exposure)</option>
+                <option value="metro_transit">Electric Metro / Rail / Bus</option>
+                <option value="hybrid_wfh">Hybrid / Remote Work from Home</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="heatingSource">Winter Space Heating</label>
+              <select id="heatingSource" name="heatingSource">
+                <option value="wood_or_biomass">Fireplace / Wood Biomass (High Soot)</option>
+                <option value="portable_radiant" selected>Electric Radiant / Halogen Heater</option>
+                <option value="electric_heatpump">Inverter Heat Pump (High Efficiency)</option>
+                <option value="gas_boiler">Natural Gas Radiator</option>
+              </select>
+            </div>
+
+            <div class="form-group half">
+              <label for="cookingType">Kitchen Cooking Setup</label>
+              <select id="cookingType" name="cookingType">
+                <option value="gas_hob" selected>Open Gas Burner / LPG</option>
+                <option value="induction">Electric Induction Cooktop</option>
+                <option value="exhaust_range">Gas Hob + Chimney Ducted Outside</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="generateBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+            <span>Synthesize GenAI Protection & Low-Emission Plan</span>
+          </button>
+        </form>
+
+        <!-- Current Atmospheric Readings Box -->
+        <div class="weather-box" id="weatherBox">
+          <div class="weather-header">
+            <div>
+              <span class="city-name" id="cityNameDisplay">Delhi NCR (New Delhi, India)</span>
+              <span class="badge" id="regionDisplay">Indo-Gangetic Plain</span>
+            </div>
+            <div class="aqi-bubble severe" id="aqiBubble">
+              <span class="aqi-val" id="aqiVal">384</span>
+              <span class="aqi-label">AQI</span>
+            </div>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span class="metric-label">PM2.5 Concentration</span>
+              <span class="metric-value" id="pm25Val">295.4 µg/m³</span>
+              <span class="metric-sub danger">19.7x WHO Safe Limit</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">PM10 Coarse</span>
+              <span class="metric-value" id="pm10Val">420.1 µg/m³</span>
+              <span class="metric-sub">Street silt & stubble ash</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Surface Temperature</span>
+              <span class="metric-value" id="tempVal">13°C</span>
+              <span class="metric-sub">Cold dawn floor</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Wind Velocity</span>
+              <span class="metric-value" id="windVal">3.2 km/h NW</span>
+              <span class="metric-sub danger">Stagnation Alert</span>
+            </div>
+          </div>
+
+          <div class="inversion-explanation">
+            <strong>Atmospheric Inversion Physics:</strong>
+            <p id="inversionDesc">In winter, radiative cooling cools the ground faster than upper air. This creates a dense warm 'lid' above cold surface air, preventing toxic particulates from dispersing vertically.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Center & Right: GenAI Output Panels -->
+      <section class="results-column">
+        <!-- Navigation Tabs -->
+        <div class="tabs-nav">
+          <button class="tab-btn active" data-tab="routine">
+            <span class="tab-icon">🕒</span> Low-Emission Daily Routine
+          </button>
+          <button class="tab-btn" data-tab="hacks">
+            <span class="tab-icon">🛠️</span> Indoor Air Quality Hacks
+          </button>
+          <button class="tab-btn" data-tab="alternatives">
+            <span class="tab-icon">🌱</span> Sustainable Swaps & Impact
+          </button>
+          <button class="tab-btn" data-tab="simulator">
+            <span class="tab-icon">📊</span> Interactive Impact Simulator
+          </button>
+          <button class="tab-btn" data-tab="community">
+            <span class="tab-icon">🤝</span> Community Smog Defense
+          </button>
+          <button class="tab-btn" data-tab="chat">
+            <span class="tab-icon">🤖</span> GenAI Air Copilot
+          </button>
+        </div>
+
+        <!-- TAB 1: LOW EMISSION DAILY ROUTINE -->
+        <div class="tab-pane active" id="pane-routine">
+          <div class="pane-header">
+            <div>
+              <h2>Synchronized Low-Emission & Smog Defense Schedule</h2>
+              <p>Diurnally calibrated timings to avoid peak inversion exposure while minimizing household carbon footprints.</p>
+            </div>
+            <div class="summary-pill">
+              <span id="savingsPill">Estimated -68% PM2.5 Inhalation</span>
+            </div>
+          </div>
+
+          <!-- Diurnal Chart -->
+          <div class="chart-container">
+            <div class="chart-header">
+              <h4>Hourly Smog Concentration vs Safe Vent Windows</h4>
+              <span class="tag tag-success">Safe Venting Window: 12:30 PM - 3:00 PM</span>
+            </div>
+            <div style="height: 200px;">
+              <canvas id="diurnalChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Schedule Timeline -->
+          <div class="timeline" id="routineTimeline">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+        </div>
+
+        <!-- TAB 2: INDOOR AIR QUALITY HACKS -->
+        <div class="tab-pane" id="pane-hacks">
+          <div class="pane-header">
+            <div>
+              <h2>Frugal & High-CADR Indoor Air Quality Solutions</h2>
+              <p>Science-backed retrofits, micro-climates, and filtration hacks built for real urban families.</p>
+            </div>
+          </div>
+
+          <div class="hacks-grid" id="hacksGrid">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+        </div>
+
+        <!-- TAB 3: SUSTAINABLE ALTERNATIVES & IMPACT -->
+        <div class="tab-pane" id="pane-alternatives">
+          <div class="pane-header">
+            <div>
+              <h2>Sustainable Alternatives & Direct Emissions Accounting</h2>
+              <p>Transparent calculations showing how personal and household transitions cut local air toxicity.</p>
+            </div>
+          </div>
+
+          <div class="alternatives-list" id="alternativesList">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+        </div>
+
+        <!-- TAB 4: INTERACTIVE IMPACT SIMULATOR -->
+        <div class="tab-pane" id="pane-simulator">
+          <div class="pane-header">
+            <div>
+              <h2>Personal & Community Emissions Reduction Simulator</h2>
+              <p>Toggle sustainable switches to simulate exact reductions in CO2, PM2.5 exposure, and energy spending.</p>
+            </div>
+          </div>
+
+          <div class="simulator-layout">
+            <div class="sim-controls">
+              <h3>Select Active Sustainable Interventions:</h3>
+              
+              <div class="sim-switch">
+                <input type="checkbox" id="simCarPool" checked>
+                <label for="simCarPool">
+                  <strong>Shift Car Commute to Metro / Shared Electric Pool</strong>
+                  <span>Saves ~4.8 kg CO2/day; eliminates direct vehicular exhaust into school zones.</span>
+                </label>
+              </div>
+
+              <div class="sim-switch">
+                <input type="checkbox" id="simHeating" checked>
+                <label for="simHeating">
+                  <strong>Switch Fireplace/Biomass to Zonal Heat Pump & Heavy Drapes</strong>
+                  <span>Saves ~9.3 kg CO2/day; cuts residential PAH and black carbon output by 98%.</span>
+                </label>
+              </div>
+
+              <div class="sim-switch">
+                <input type="checkbox" id="simInduction" checked>
+                <label for="simInduction">
+                  <strong>Adopt Induction Cooking & Covered-Lid Batch Simmering</strong>
+                  <span>Eliminates indoor NO2 spikes; cuts kitchen particulate accumulation by 40%.</span>
+                </label>
+              </div>
+
+              <div class="sim-switch">
+                <input type="checkbox" id="simCorsi" checked>
+                <label for="simCorsi">
+                  <strong>Operate DIY Corsi-Rosenthal High-CADR Purifier Box</strong>
+                  <span>Consumes 60% less energy than multi-room commercial units with 450 m³/h clean air.</span>
+                </label>
+              </div>
+
+              <div class="sim-switch">
+                <input type="checkbox" id="simNoTrash">
+                <label for="simNoTrash">
+                  <strong>Enforce Neighborhood Anti-Leaf & Plastic Burning Ban</strong>
+                  <span>Prevents emission of carcinogenic dioxins & ultra-fine black soot clusters.</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="sim-outputs">
+              <div class="sim-score-card">
+                <span class="sim-score-title">Monthly CO2 Emissions Avoided</span>
+                <span class="sim-score-value" id="simCo2Value">384 kg</span>
+                <span class="sim-score-sub" id="simTreeEq">Equivalent to planting 19 mature urban trees</span>
+              </div>
+
+              <div class="sim-score-card">
+                <span class="sim-score-title">Personal PM2.5 Inhalation Cut</span>
+                <span class="sim-score-value" id="simPm25Value">-76%</span>
+                <span class="sim-score-sub">Lung inflammation risk reduced significantly</span>
+              </div>
+
+              <div class="sim-score-card">
+                <span class="sim-score-title">Estimated Monthly Energy & Fuel Saved</span>
+                <span class="sim-score-value" id="simCostValue">$180</span>
+                <span class="sim-score-sub">Lower fossil fuel & high-draw heater utility bills</span>
+              </div>
+
+              <div class="chart-container" style="margin-top: 1rem;">
+                <h4>Cumulative Emissions: Baseline vs Your Actions (kg CO2e)</h4>
+                <div style="height: 180px;">
+                  <canvas id="impactChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: COMMUNITY SMOG DEFENSE -->
+        <div class="tab-pane" id="pane-community">
+          <div class="pane-header">
+            <div>
+              <h2>Neighborhood & Community Collective Action Hub</h2>
+              <p>Empowering housing societies, neighborhood councils, and school districts to fight winter smog together.</p>
+            </div>
+          </div>
+
+          <div class="community-grid" id="communityGrid">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+
+          <!-- Community Pledge Section -->
+          <div class="card community-pledge-box">
+            <div class="pledge-content">
+              <h3>Join the 100-Home Winter Clean Air Compact</h3>
+              <p>Pledge to avoid private vehicle idling outside schools, halt dry garden waste burning, and share air quality sensors with vulnerable families in your block.</p>
+              <div class="pledge-action">
+                <input type="text" id="pledgeName" placeholder="Enter your neighborhood / colony name (e.g., Green Park Block B)">
+                <button class="btn btn-secondary" id="pledgeBtn">Sign Community Air Compact</button>
+              </div>
+              <p class="pledge-counter" id="pledgeCounter">🛡️ <strong>1,428 families</strong> across 42 urban clusters have joined the winter compact.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: GENAI COPILOT CHAT -->
+        <div class="tab-pane" id="pane-chat">
+          <div class="pane-header">
+            <div>
+              <h2>Interactive GenAI Air Copilot</h2>
+              <p>Ask real-time questions about your baby's exposure, mask fitment, purifier DIYs, morning workouts, or local inversion trends.</p>
+            </div>
+          </div>
+
+          <div class="chat-wrapper">
+            <div class="chat-messages" id="chatMessages">
+              <div class="chat-bubble ai">
+                <div class="chat-avatar">AI</div>
+                <div class="chat-content">
+                  <p>Hello! I am your <strong>AetherGuard GenAI Assistant</strong>. I'm currently tracking the atmospheric inversion dynamics in your area.</p>
+                  <p>How can I help protect your household or design low-emission routines today? You can ask me:</p>
+                  <div class="chat-suggestions">
+                    <button class="chip" onclick="askCopilot('When is the safest time today for my child to play outdoors?')">🏃 Safe outdoor window for kids?</button>
+                    <button class="chip" onclick="askCopilot('How do I build a DIY Corsi-Rosenthal box filter under $35?')">📦 How to build a DIY box filter?</button>
+                    <button class="chip" onclick="askCopilot('Why is my morning jog hazardous during winter thermal inversion?')">🫁 Morning jog hazards?</button>
+                    <button class="chip" onclick="askCopilot('Which indoor plants actually help with smog and VOCs?')">🌿 Best air-cleaning indoor plants?</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <form id="chatForm" class="chat-input-bar">
+              <input type="text" id="chatInput" placeholder="Ask about indoor purification hacks, baby precautions, mask standards, or emission cuts..." autocomplete="off">
+              <button type="submit" class="btn btn-primary" id="chatSendBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+                <span>Send</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p>AetherGuard AI &copy; 2026. Empowering urban resilience, citizen science, and direct atmospheric emission reductions.</p>
+        <div class="footer-links">
+          <span>WHO Air Guidelines Aligned</span> &bull; 
+          <span>Thermal Inversion Physics Engine</span> &bull; 
+          <span>Clean Air Delivery Rate (CADR) Standards</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
