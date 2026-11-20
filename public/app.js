@@ -59,12 +59,15 @@ function setupFormHandlers() {
         cb.checked = !cb.checked;
       }
       pill.classList.toggle('active', cb.checked);
+      triggerPlanGeneration();
     });
   });
 
-  citySelect.addEventListener('change', () => {
-    triggerPlanGeneration();
-  });
+  if (citySelect) {
+    citySelect.addEventListener('change', () => {
+      triggerPlanGeneration();
+    });
+  }
 
   // Auto-calculate immediately whenever any of the 4 key factors are changed
   const factorSelects = ['housingType', 'commuteMode', 'heatingSource', 'cookingType'];
@@ -77,24 +80,28 @@ function setupFormHandlers() {
     }
   });
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    triggerPlanGeneration();
-  });
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      triggerPlanGeneration();
+    });
+  }
 }
 
 // Fetch Plan from GenAI Engine API
 async function triggerPlanGeneration() {
   const generateBtn = document.getElementById('generateBtn');
-  const originalText = generateBtn.innerHTML;
-  generateBtn.innerHTML = `<span>Synthesizing Atmospheric Data...</span>`;
-  generateBtn.disabled = true;
+  const originalText = generateBtn ? generateBtn.innerHTML : '';
+  if (generateBtn) {
+    generateBtn.innerHTML = `<span>Synthesizing Atmospheric Data...</span>`;
+    generateBtn.disabled = true;
+  }
 
-  const city = document.getElementById('citySelect').value;
-  const housingType = document.getElementById('housingType').value;
-  const commuteMode = document.getElementById('commuteMode').value;
-  const heatingSource = document.getElementById('heatingSource').value;
-  const cookingType = document.getElementById('cookingType').value;
+  const city = document.getElementById('citySelect') ? document.getElementById('citySelect').value : 'delhi';
+  const housingType = document.getElementById('housingType') ? document.getElementById('housingType').value : 'independent_house';
+  const commuteMode = document.getElementById('commuteMode') ? document.getElementById('commuteMode').value : 'car_solo';
+  const heatingSource = document.getElementById('heatingSource') ? document.getElementById('heatingSource').value : 'portable_radiant';
+  const cookingType = document.getElementById('cookingType') ? document.getElementById('cookingType').value : 'gas_hob';
 
   const checkedPills = Array.from(document.querySelectorAll('input[name="familyProfile"]:checked'))
     .map(cb => cb.value);
@@ -108,9 +115,12 @@ async function triggerPlanGeneration() {
     dailyHabits: [cookingType]
   };
 
-  // Replace line ~101 in public/app.js:
   try {
-    const res = await fetch('/api/generate-plan', {
+    const apiUrl = window.location.origin.includes('3000')
+      ? '/api/generate-plan'
+      : 'http://localhost:3000/api/generate-plan';
+
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -122,53 +132,25 @@ async function triggerPlanGeneration() {
 
     updateAtmosphericDisplays(data.cityData);
     renderRoutineTimeline(data.routinePlan);
-    renderAuditBreakdown(data.summary.factorsBreakdown);
+    renderAuditBreakdown(data.summary ? data.summary.factorsBreakdown : null);
     renderIndoorHacks(data.indoorHacks);
     renderSustainableAlternatives(data.sustainableAlternatives);
     renderCommunityInitiatives(data.communityInitiatives);
     renderDiurnalChart(data.cityData);
     updateSimulatorMetrics();
 
-    document.getElementById('savingsPill').innerText = data.summary.estimatedExposureReduction;
+    const savingsPill = document.getElementById('savingsPill');
+    if (savingsPill && data.summary) {
+      savingsPill.innerText = data.summary.estimatedExposureReduction;
+    }
 
   } catch (err) {
     console.error('Error fetching plan:', err);
   } finally {
-    generateBtn.innerHTML = originalText;
-    generateBtn.disabled = false;
-  }
-}
-
-// Update Left-Hand Weather & AQI Readouts
-function updateAtmosphericDisplays(cityData) {
-  document.getElementById('cityNameDisplay').innerText = cityData.name;
-  document.getElementById('regionDisplay').innerText = cityData.region;
-  document.getElementById('aqiVal').innerText = cityData.baseAqi;
-  document.getElementById('pm25Val').innerText = `${cityData.pm25} µg/m³`;
-  document.getElementById('pm10Val').innerText = `${cityData.pm10} µg/m³`;
-  document.getElementById('tempVal').innerText = cityData.temp;
-  document.getElementById('windVal').innerText = cityData.wind;
-  document.getElementById('inversionDesc').innerText = cityData.advisory;
-
-  // AQI color bubbles
-  const bubble = document.getElementById('aqiBubble');
-  bubble.className = 'aqi-bubble';
-  if (cityData.baseAqi >= 300) {
-    bubble.classList.add('severe');
-  } else if (cityData.baseAqi >= 150) {
-    bubble.classList.add('unhealthy');
-  } else {
-    bubble.classList.add('moderate');
-  }
-
-  // Inversion header badge
-  const inversionBadge = document.getElementById('inversionBadge');
-  if (cityData.baseAqi > 200) {
-    inversionBadge.innerHTML = `<span class="pulsing-dot"></span><span>Critical Alert: Thermal Inversion Cap Active</span>`;
-    inversionBadge.className = 'status-chip high';
-  } else {
-    inversionBadge.innerHTML = `<span class="pulsing-dot" style="background:#10b981;"></span><span>Inversion Status: Moderate / Transitional</span>`;
-    inversionBadge.className = 'status-chip';
+    if (generateBtn) {
+      generateBtn.innerHTML = originalText;
+      generateBtn.disabled = false;
+    }
   }
 }
 
@@ -245,20 +227,79 @@ function renderAuditBreakdown(breakdown) {
     container.appendChild(cardEl);
   });
 
-  // Update summary pill & balance box
   const auditSummaryPill = document.getElementById('auditSummaryPill');
   if (auditSummaryPill) {
     auditSummaryPill.innerHTML = `<span>Baseline: ${breakdown.totalBaselineCO2Daily}</span>`;
   }
-  document.getElementById('auditTotalDailyCO2').innerText = breakdown.totalBaselineCO2Daily;
-  document.getElementById('auditTotalMonthlyCost').innerText = `Estimated Monthly Expense: ${breakdown.totalBaselineCostMonthly}`;
-  document.getElementById('auditOptimizedDailyCO2').innerText = "5.8 kg CO2e / day";
-  document.getElementById('auditMonthlySavings').innerText = `Net Savings: ${breakdown.totalMonthlyCO2Savings} & ${breakdown.totalMonthlyCostSavings}`;
+  const elDaily = document.getElementById('auditTotalDailyCO2');
+  if (elDaily) elDaily.innerText = breakdown.totalBaselineCO2Daily;
+
+  const elCost = document.getElementById('auditTotalMonthlyCost');
+  if (elCost) elCost.innerText = `Estimated Monthly Expense: ${breakdown.totalBaselineCostMonthly}`;
+
+  const elOpt = document.getElementById('auditOptimizedDailyCO2');
+  if (elOpt) elOpt.innerText = "5.8 kg CO2e / day";
+
+  const elSav = document.getElementById('auditMonthlySavings');
+  if (elSav) elSav.innerText = `Net Savings: ${breakdown.totalMonthlyCO2Savings} & ${breakdown.totalMonthlyCostSavings}`;
+}
+
+// Update Left-Hand Weather & AQI Readouts
+function updateAtmosphericDisplays(cityData) {
+  if (!cityData) return;
+
+  const cityName = document.getElementById('cityNameDisplay');
+  if (cityName) cityName.innerText = cityData.name;
+
+  const region = document.getElementById('regionDisplay');
+  if (region) region.innerText = cityData.region;
+
+  const aqiVal = document.getElementById('aqiVal');
+  if (aqiVal) aqiVal.innerText = cityData.baseAqi;
+
+  const pm25 = document.getElementById('pm25Val');
+  if (pm25) pm25.innerText = `${cityData.pm25} µg/m³`;
+
+  const pm10 = document.getElementById('pm10Val');
+  if (pm10) pm10.innerText = `${cityData.pm10} µg/m³`;
+
+  const temp = document.getElementById('tempVal');
+  if (temp) temp.innerText = cityData.temp;
+
+  const wind = document.getElementById('windVal');
+  if (wind) wind.innerText = cityData.wind;
+
+  const invDesc = document.getElementById('inversionDesc');
+  if (invDesc) invDesc.innerText = cityData.advisory;
+
+  const bubble = document.getElementById('aqiBubble');
+  if (bubble) {
+    bubble.className = 'aqi-bubble';
+    if (cityData.baseAqi >= 300) {
+      bubble.classList.add('severe');
+    } else if (cityData.baseAqi >= 150) {
+      bubble.classList.add('unhealthy');
+    } else {
+      bubble.classList.add('moderate');
+    }
+  }
+
+  const inversionBadge = document.getElementById('inversionBadge');
+  if (inversionBadge) {
+    if (cityData.baseAqi > 200) {
+      inversionBadge.innerHTML = `<span class="pulsing-dot"></span><span>Critical Alert: Thermal Inversion Cap Active</span>`;
+      inversionBadge.className = 'status-chip high';
+    } else {
+      inversionBadge.innerHTML = `<span class="pulsing-dot" style="background:#10b981;"></span><span>Inversion Status: Moderate / Transitional</span>`;
+      inversionBadge.className = 'status-chip';
+    }
+  }
 }
 
 // Render Timeline of Low-Emission Daily Routines
 function renderRoutineTimeline(routine) {
   const container = document.getElementById('routineTimeline');
+  if (!container || !routine) return;
   container.innerHTML = '';
 
   const icons = ['🌅', '🚆', '☀️', '🍲', '🌙'];
@@ -287,6 +328,7 @@ function renderRoutineTimeline(routine) {
 // Render Indoor Hacks Grid
 function renderIndoorHacks(hacks) {
   const grid = document.getElementById('hacksGrid');
+  if (!grid || !hacks) return;
   grid.innerHTML = '';
 
   hacks.forEach(hack => {
@@ -316,6 +358,7 @@ function renderIndoorHacks(hacks) {
 // Render Sustainable Alternatives List
 function renderSustainableAlternatives(alternatives) {
   const list = document.getElementById('alternativesList');
+  if (!list || !alternatives) return;
   list.innerHTML = '';
 
   alternatives.forEach(alt => {
@@ -353,6 +396,7 @@ function renderSustainableAlternatives(alternatives) {
 // Render Community Collective Action Hub
 function renderCommunityInitiatives(initiatives) {
   const grid = document.getElementById('communityGrid');
+  if (!grid || !initiatives) return;
   grid.innerHTML = '';
 
   initiatives.forEach(item => {
@@ -369,13 +413,13 @@ function renderCommunityInitiatives(initiatives) {
   });
 }
 
-// Render Diurnal Chart (Particulate Curve vs Sunlight & Inversion Break)
+// Render Diurnal Chart
 function renderDiurnalChart(cityData) {
-  const ctx = document.getElementById('diurnalChart').getContext('2d');
+  const canvas = document.getElementById('diurnalChart');
+  if (!canvas || !cityData || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
   const base = cityData.baseAqi;
 
-  // Diurnal curve values based on atmospheric inversion physics
-  // High at 6-8 AM, dips at 1-3 PM, peaks again 8-10 PM
   const hourlyData = [
     base * 0.95, base * 1.05, base * 1.15, base * 1.25, base * 1.10, base * 0.85,
     base * 0.60, base * 0.52, base * 0.58, base * 0.80, base * 1.05, base * 1.20
@@ -436,16 +480,17 @@ function renderDiurnalChart(cityData) {
 function setupSimulators() {
   const switches = ['simCarPool', 'simHeating', 'simInduction', 'simCorsi', 'simNoTrash'];
   switches.forEach(id => {
-    document.getElementById(id).addEventListener('change', updateSimulatorMetrics);
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updateSimulatorMetrics);
   });
 }
 
 function updateSimulatorMetrics() {
-  const car = document.getElementById('simCarPool').checked;
-  const heating = document.getElementById('simHeating').checked;
-  const induction = document.getElementById('simInduction').checked;
-  const corsi = document.getElementById('simCorsi').checked;
-  const noTrash = document.getElementById('simNoTrash').checked;
+  const car = document.getElementById('simCarPool') ? document.getElementById('simCarPool').checked : false;
+  const heating = document.getElementById('simHeating') ? document.getElementById('simHeating').checked : false;
+  const induction = document.getElementById('simInduction') ? document.getElementById('simInduction').checked : false;
+  const corsi = document.getElementById('simCorsi') ? document.getElementById('simCorsi').checked : false;
+  const noTrash = document.getElementById('simNoTrash') ? document.getElementById('simNoTrash').checked : false;
 
   let totalCo2Month = 0;
   let pmReductionPct = 0;
@@ -457,20 +502,28 @@ function updateSimulatorMetrics() {
   if (corsi) { totalCo2Month += 18; pmReductionPct += 25; costSaved += 20; }
   if (noTrash) { totalCo2Month += 90; pmReductionPct += 18; costSaved += 0; }
 
-  // Clamp reduction percentage at 92%
   const finalPmReduction = Math.min(pmReductionPct, 92);
   const treeCount = Math.round(totalCo2Month / 20);
 
-  document.getElementById('simCo2Value').innerText = `${totalCo2Month} kg`;
-  document.getElementById('simPm25Value').innerText = `-${finalPmReduction}%`;
-  document.getElementById('simCostValue').innerText = `$${costSaved}`;
-  document.getElementById('simTreeEq').innerText = `Equivalent to planting ${treeCount} mature urban trees`;
+  const elCo2 = document.getElementById('simCo2Value');
+  if (elCo2) elCo2.innerText = `${totalCo2Month} kg`;
+
+  const elPm = document.getElementById('simPm25Value');
+  if (elPm) elPm.innerText = `-${finalPmReduction}%`;
+
+  const elCost = document.getElementById('simCostValue');
+  if (elCost) elCost.innerText = `$${costSaved}`;
+
+  const elTree = document.getElementById('simTreeEq');
+  if (elTree) elTree.innerText = `Equivalent to planting ${treeCount} mature urban trees`;
 
   renderImpactChart(totalCo2Month);
 }
 
 function renderImpactChart(co2Saved) {
-  const ctx = document.getElementById('impactChart').getContext('2d');
+  const canvas = document.getElementById('impactChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
   const baseline = 520;
   const withActions = Math.max(baseline - co2Saved, 40);
 
@@ -515,6 +568,7 @@ function renderImpactChart(co2Saved) {
 function setupChatHandlers() {
   const form = document.getElementById('chatForm');
   const input = document.getElementById('chatInput');
+  if (!form || !input) return;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -529,7 +583,6 @@ function setupChatHandlers() {
 }
 
 function askCopilot(question) {
-  // Switch to chat tab
   const chatTabBtn = document.querySelector('.tab-btn[data-tab="chat"]');
   if (chatTabBtn) chatTabBtn.click();
 
@@ -539,8 +592,8 @@ function askCopilot(question) {
 
 async function fetchAIChatReply(question) {
   const messagesContainer = document.getElementById('chatMessages');
+  if (!messagesContainer) return;
 
-  // Loading bubble
   const loadingBubble = document.createElement('div');
   loadingBubble.className = 'chat-bubble ai';
   loadingBubble.id = 'loadingBubble';
@@ -554,7 +607,11 @@ async function fetchAIChatReply(question) {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
   try {
-    const res = await fetch('/api/chat', {
+    const apiUrl = window.location.origin.includes('3000')
+      ? '/api/chat'
+      : 'http://localhost:3000/api/chat';
+
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -565,17 +622,17 @@ async function fetchAIChatReply(question) {
 
     const data = await res.json();
     loadingBubble.remove();
-
     appendChatMessage('ai', data.reply, data.suggestedAction);
 
   } catch (err) {
     loadingBubble.remove();
-    appendChatMessage('ai', "I'm temporarily having trouble connecting to the atmospheric model. Please check that the server is online!");
+    appendChatMessage('ai', "I'm temporarily having trouble connecting to the atmospheric model. Please ensure the backend server is running on http://localhost:3000!");
   }
 }
 
 function appendChatMessage(sender, text, suggestedAction = null) {
   const container = document.getElementById('chatMessages');
+  if (!container) return;
   const bubble = document.createElement('div');
   bubble.className = `chat-bubble ${sender}`;
 
@@ -604,6 +661,7 @@ function setupPledge() {
   const btn = document.getElementById('pledgeBtn');
   const input = document.getElementById('pledgeName');
   const counter = document.getElementById('pledgeCounter');
+  if (!btn || !input || !counter) return;
 
   btn.addEventListener('click', () => {
     const val = input.value.trim();
@@ -621,12 +679,13 @@ function setupPledge() {
 
 // Utilities
 function escapeHtml(string) {
+  if (string == null) return '';
   const div = document.createElement('div');
-  div.innerText = string;
+  div.innerText = String(string);
   return div.innerHTML;
 }
 
 function formatMarkdown(text) {
-  // Simple bold markdown conversion
+  if (text == null) return '';
   return escapeHtml(text).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 }
