@@ -108,6 +108,7 @@ async function triggerPlanGeneration() {
     dailyHabits: [cookingType]
   };
 
+  // Replace line ~101 in public/app.js:
   try {
     const res = await fetch('/api/generate-plan', {
       method: 'POST',
@@ -376,7 +377,7 @@ function renderDiurnalChart(cityData) {
   // Diurnal curve values based on atmospheric inversion physics
   // High at 6-8 AM, dips at 1-3 PM, peaks again 8-10 PM
   const hourlyData = [
-    base * 0.95, base * 1.05, base * 1.15, base * 1.25, base * 1.10, base * 0.85, 
+    base * 0.95, base * 1.05, base * 1.15, base * 1.25, base * 1.10, base * 0.85,
     base * 0.60, base * 0.52, base * 0.58, base * 0.80, base * 1.05, base * 1.20
   ];
 
