@@ -194,6 +194,9 @@
           <button class="tab-btn active" data-tab="routine">
             <span class="tab-icon">🕒</span> Low-Emission Daily Routine
           </button>
+          <button class="tab-btn" data-tab="footprint">
+            <span class="tab-icon">🧮</span> Household Carbon & Exposure Audit
+          </button>
           <button class="tab-btn" data-tab="hacks">
             <span class="tab-icon">🛠️</span> Indoor Air Quality Hacks
           </button>
@@ -237,6 +240,45 @@
           <!-- Schedule Timeline -->
           <div class="timeline" id="routineTimeline">
             <!-- Rendered dynamically by app.js -->
+          </div>
+        </div>
+
+        <!-- TAB: HOUSEHOLD CARBON & EXPOSURE AUDIT -->
+        <div class="tab-pane" id="pane-footprint">
+          <div class="pane-header">
+            <div>
+              <h2>Direct Impact Audit: Housing, Commute, Heating & Cooking</h2>
+              <p>Dynamic engineering and atmospheric calculations showing the exact carbon footprint, thermal loss, and particulate risks of your setup.</p>
+            </div>
+            <div class="summary-pill" id="auditSummaryPill">
+              <span>Baseline: 0 kg CO2e / day</span>
+            </div>
+          </div>
+
+          <!-- 4 Factor Breakdown Cards -->
+          <div class="audit-grid" id="auditGrid">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+
+          <!-- Total Balance Comparison -->
+          <div class="audit-balance-box">
+            <div class="balance-column">
+              <h4>Current Baseline Footprint</h4>
+              <div class="balance-metric">
+                <span class="val danger" id="auditTotalDailyCO2">22.4 kg</span>
+                <span class="lbl">Daily Household CO2e</span>
+              </div>
+              <div class="balance-sub" id="auditTotalMonthlyCost">Estimated Monthly Cost: $340/mo</div>
+            </div>
+            <div class="balance-arrow">➡️</div>
+            <div class="balance-column">
+              <h4>With Recommended Low-Emission Swaps</h4>
+              <div class="balance-metric">
+                <span class="val success" id="auditOptimizedDailyCO2">5.8 kg</span>
+                <span class="lbl">Optimized Daily CO2e</span>
+              </div>
+              <div class="balance-sub" id="auditMonthlySavings">Net Savings: 498 kg CO2e / month & $210/mo</div>
+            </div>
           </div>
         </div>
 

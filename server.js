@@ -1,7 +1,6 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -140,48 +139,155 @@ const CITIES_DB = {
 function generateAIPlan(params) {
   const { city, familyProfile, housingType, commuteMode, heatingSource, dailyHabits } = params;
   const cityData = CITIES_DB[city.toLowerCase()] || CITIES_DB["delhi"];
+  const cookingType = (dailyHabits && dailyHabits[0]) || 'gas_hob';
   
   const hasKids = familyProfile.includes("infant") || familyProfile.includes("child");
   const hasElderly = familyProfile.includes("elderly") || familyProfile.includes("asthma");
   const isVulnerable = hasKids || hasElderly;
   
-  // Calculate potential emission & exposure savings
-  let baselineCO2Kg = 14.5;
-  let optimizedCO2Kg = 4.2;
-  let pm25ExposureReductionPct = 68;
+  // =========================================================================
+  // QUANTITATIVE CALCULATION ENGINE:
+  // Dynamically computes daily & monthly CO2 footprints, energy costs,
+  // infiltration vulnerability, and PM2.5 exposure reductions from the 4 factors.
+  // =========================================================================
 
+  // Factor 1: Housing Envelope Infiltration & Leakage
+  let housingLeakageFactor = 1.0;
+  let housingName = "Independent House / Villa";
+  let housingInfiltrationLabel = "Moderate (Standard Perimeter Leakage)";
+  let housingThermalLossKwH = 8.5; // daily thermal loss
+  if (housingType === 'older_apartment') {
+    housingLeakageFactor = 1.55;
+    housingName = "Older Apartment (Single-Glaze Glass)";
+    housingInfiltrationLabel = "Severe (High Infiltration Stack-Effect via 2-3mm Frame Gaps)";
+    housingThermalLossKwH = 14.2;
+  } else if (housingType === 'modern_condo') {
+    housingLeakageFactor = 0.55;
+    housingName = "Modern High-Rise (Double Glazed & Air-Tight)";
+    housingInfiltrationLabel = "Low (Tight Envelope, High Sealed Retention)";
+    housingThermalLossKwH = 4.2;
+  } else if (housingType === 'ground_floor_flat') {
+    housingLeakageFactor = 1.35;
+    housingName = "Ground Floor Unit (High Silt / Cold Ground Influx)";
+    housingInfiltrationLabel = "High (Direct Street Silt, Road Particulate Infiltration)";
+    housingThermalLossKwH = 11.8;
+  }
+
+  // Factor 2: Commute Mode Carbon & Exposure
+  let commuteDailyCO2 = 0;
+  let commuteMonthlyCost = 0;
+  let commuteExposureHazard = "";
+  let commuteName = "";
   if (commuteMode === 'car_solo') {
-    baselineCO2Kg += 8.2;
-    optimizedCO2Kg += 1.8;
-  } else if (commuteMode === 'ev_or_metro') {
-    baselineCO2Kg += 1.2;
-    optimizedCO2Kg += 0.4;
+    commuteDailyCO2 = 8.4; // kg CO2e / day (25-30 km round trip ICE car)
+    commuteMonthlyCost = 135; // fuel & parking
+    commuteExposureHazard = "High in-cabin vehicular cabin soot ingestion unless 100% recirculation active";
+    commuteName = "Solo ICE Car (Gasoline / Diesel)";
+  } else if (commuteMode === 'two_wheeler') {
+    commuteDailyCO2 = 3.6; // kg CO2e / day
+    commuteMonthlyCost = 45;
+    commuteExposureHazard = "Extreme direct respiratory exhaust inhalation along arterial traffic queues";
+    commuteName = "Two-Wheeler / Motorbike";
+  } else if (commuteMode === 'metro_transit') {
+    commuteDailyCO2 = 1.2;
+    commuteMonthlyCost = 35;
+    commuteExposureHazard = "Low (Underground electric rail avoids ground street exhaust plumes)";
+    commuteName = "Electric Metro / Rail / Bus Transit";
+  } else { // hybrid_wfh
+    commuteDailyCO2 = 0.4;
+    commuteMonthlyCost = 10;
+    commuteExposureHazard = "Minimal direct traffic exposure";
+    commuteName = "Hybrid / Remote Work from Home";
   }
 
+  // Factor 3: Winter Space Heating
+  let heatingDailyCO2 = 0;
+  let heatingMonthlyCost = 0;
+  let heatingIndoorPM25Hazard = "";
+  let heatingName = "";
   if (heatingSource === 'wood_or_biomass') {
-    baselineCO2Kg += 12.0;
-    optimizedCO2Kg += 2.0;
-    pm25ExposureReductionPct = 84;
+    heatingDailyCO2 = 14.8; // kg CO2 / day
+    heatingMonthlyCost = 110;
+    heatingIndoorPM25Hazard = "Extreme: Open combustion emits >850 µg/m³ peak soot & carcinogenic PAHs directly into living room";
+    heatingName = "Fireplace / Wood Biomass (High Soot)";
+  } else if (heatingSource === 'portable_radiant') {
+    heatingDailyCO2 = 7.2; // 2 kW heater running 6 hrs = 12 kWh = ~7.2 kg CO2 on coal-grid mix
+    heatingMonthlyCost = 85;
+    heatingIndoorPM25Hazard = "No direct particulate emission, but high electrical draw & local air drying";
+    heatingName = "Electric Radiant / Halogen Space Heater";
   } else if (heatingSource === 'electric_heatpump') {
-    baselineCO2Kg += 3.0;
-    optimizedCO2Kg += 1.5;
+    heatingDailyCO2 = 2.1; // COP ~3.5
+    heatingMonthlyCost = 35;
+    heatingIndoorPM25Hazard = "Zero direct emissions; filtered internal recirculated convection";
+    heatingName = "Inverter Heat Pump (High Efficiency COP 3.5+)";
+  } else { // gas_boiler
+    heatingDailyCO2 = 8.9;
+    heatingMonthlyCost = 90;
+    heatingIndoorPM25Hazard = "Low indoor soot if flued, but continuous NOx and methane fugitive emissions";
+    heatingName = "Natural Gas Boiler / Radiator";
   }
 
-  // 1. Customized Routine & Air Quality Safe Windows
+  // Factor 4: Kitchen Cooking Setup
+  let cookingDailyCO2 = 0;
+  let cookingMonthlyCost = 0;
+  let cookingIndoorToxicity = "";
+  let cookingName = "";
+  if (cookingType === 'gas_hob') {
+    cookingDailyCO2 = 2.1;
+    cookingMonthlyCost = 28;
+    cookingIndoorToxicity = "Severe: Unvented gas flame emits up to 400 ppb NO2, formaldehyde & fine aerosols in breathing zone";
+    cookingName = "Open Gas Burner / LPG Hob (Unvented)";
+  } else if (cookingType === 'induction') {
+    cookingDailyCO2 = 0.7;
+    cookingMonthlyCost = 14;
+    cookingIndoorToxicity = "Zero combustion emissions, zero NO2, only steam & cooking aroma";
+    cookingName = "Electric Induction Cooktop (Combustion-Free)";
+  } else { // exhaust_range
+    cookingDailyCO2 = 1.9;
+    cookingMonthlyCost = 26;
+    cookingIndoorToxicity = "Moderate: 70% of NO2 captured by chimney exhaust hood, residual ambient heat loss";
+    cookingName = "Gas Hob + External Ducted Chimney Exhaust";
+  }
+
+  // Baseline Aggregates
+  const totalDailyBaselineCO2 = (commuteDailyCO2 + heatingDailyCO2 + cookingDailyCO2 + (housingThermalLossKwH * 0.45)).toFixed(1);
+  const totalMonthlyBaselineCost = Math.round(commuteMonthlyCost + heatingMonthlyCost + cookingMonthlyCost + (housingThermalLossKwH * 30 * 0.08));
+
+  // Optimized Scenario Aggregates (using sustainable swaps: heat pump + induction + transit + weatherstripping)
+  const optimizedDailyCO2 = (1.2 + 2.1 + 0.7 + (4.2 * 0.45)).toFixed(1); // ~5.9 kg
+  const dailyCO2Saved = Math.max(0, (totalDailyBaselineCO2 - optimizedDailyCO2)).toFixed(1);
+  const monthlyCO2Saved = Math.round(dailyCO2Saved * 30);
+  const monthlyCostSaved = Math.max(25, totalMonthlyBaselineCost - (35 + 35 + 14 + 10));
+
+  // Exposure Reduction dynamic calculation
+  let calculatedExposureReduction = 55;
+  if (housingType === 'older_apartment') calculatedExposureReduction += 15; // weatherstripping yields huge gain
+  if (heatingSource === 'wood_or_biomass') calculatedExposureReduction += 16;
+  if (cookingType === 'gas_hob') calculatedExposureReduction += 8;
+  if (commuteMode === 'two_wheeler' || commuteMode === 'car_solo') calculatedExposureReduction += 6;
+  calculatedExposureReduction = Math.min(94, calculatedExposureReduction);
+
+  // 1. Customized Routine & Air Quality Safe Windows Tailored to the 4 Factors
   const routinePlan = [
     {
       timeWindow: "06:00 AM – 09:30 AM",
-      phase: "Morning Peak Inversion & Stagnation",
-      action: "Strictly Seal Indoor Envelope & Skip Outdoor Cardio",
-      why: `Winter radiation inversion is steepest right at dawn in ${cityData.region}. Cold ground air holds heavy PM2.5 within breathing height. Ventilating now pulls in up to ${cityData.pm25} µg/m³ of fine particulates.`,
-      emissionCut: "Avoid cold-engine car idling (prevents ~1.2 kg CO2 & toxic unburnt HC emissions)."
+      phase: "Morning Peak Inversion & Infiltration Defense",
+      action: housingType === 'older_apartment' || housingType === 'ground_floor_flat'
+        ? `Seal Window Jambs with Damp Draft Snakes & Run Purifier (Housing: ${housingName})`
+        : `Strictly Maintain Sealed Envelope; Keep Double-Glazed Frames Latched`,
+      why: `Winter radiation inversion is steepest right at dawn in ${cityData.region}. Ambient air holds up to ${cityData.pm25} µg/m³ of fine particulates. In your ${housingName}, stack effect forces cold soot through window gaps unless sealed.`,
+      emissionCut: `Prevents cold-room thermal leakage (${(housingThermalLossKwH * 0.25).toFixed(1)} kWh saved).`
     },
     {
       timeWindow: "10:00 AM – 11:30 AM",
       phase: "Commute & School Transit Safe Passage",
-      action: commuteMode === 'car_solo' ? "Shift to Shared EV Shuttle / Metro, or Set In-Cabin Recirculation" : "Equip N95 mask + activate public electric rail",
-      why: "Inside vehicular cabins without air recirculation mode, cabin PM2.5 can reach 70% of tailpipe plumes from preceding diesel trucks.",
-      emissionCut: "Trip pooling saves 4.8 kg CO2/day per family."
+      action: commuteMode === 'car_solo' 
+        ? "Shift to Public Rail/Metro, or Toggle Car In-Cabin Recirculation to Avoid Exhaust"
+        : commuteMode === 'two_wheeler'
+          ? "Equip Certified N95 Respirator with Airtight Nose Clip; Avoid Heavy Truck Lanes"
+          : "Maintain Public Electric Transit / WFH Routine with Certified Mask on Platforms",
+      why: commuteExposureHazard,
+      emissionCut: `Commute choice saves up to ${(commuteDailyCO2 - 1.2).toFixed(1)} kg CO2e today.`
     },
     {
       timeWindow: "12:30 PM – 03:00 PM",
@@ -191,23 +297,42 @@ function generateAIPlan(params) {
       emissionCut: "Harness natural thermal gain to keep thermostat 2°C lower, cutting 1.9 kWh electricity."
     },
     {
-      timeWindow: "06:00 PM – 09:00 PM",
-      phase: "Evening Traffic Re-inversion & Domestic Cooking",
-      action: "Use Range Hood Exhaust on High + Charcoal Pre-Filter",
-      why: "Stir-frying and gas burner combustion release peak indoor NO2 and ultrafine aerosols right as outdoor air re-cools and locks pollutants in.",
-      emissionCut: "Cover pots and batch-cook: 25% cooking gas/LPG reduction."
+      timeWindow: "06:00 PM – 08:30 PM",
+      phase: "Evening Traffic Re-Inversion & Cooking Operations",
+      action: cookingType === 'gas_hob'
+        ? "Cover Cookware Pots, Use Cross-Room Exhaust, or Transition to Portable Induction Unit"
+        : cookingType === 'induction'
+          ? "Utilize High-Efficiency Induction Simmering with Lids Covered (Zero NO2 Emitted)"
+          : "Turn Range Hood to Maximum 5 Minutes Before Lighting Burners",
+      why: cookingIndoorToxicity,
+      emissionCut: cookingType === 'gas_hob' 
+        ? "Covered batch-cooking saves 25% cooking gas/LPG (0.5 kg CO2e)." 
+        : "Induction draws 85% less direct thermal energy loss."
     },
     {
-      timeWindow: "09:30 PM – 06:00 AM",
-      phase: "Sleep Restoration Zone",
-      action: "Micro-Environment Bedside Air Purification (Low-Decibel)",
-      why: `The human respiratory system undergoes lung tissue repair during sleep. Keeping bedroom PM2.5 under 15 µg/m³ cuts morning bronchial inflammation for ${isVulnerable ? 'high-risk family members' : 'adults'} by up to 73%.`,
-      emissionCut: "Sleep timer mode on electric heaters/ACs cuts 2.4 kg CO2 overnight."
+      timeWindow: "09:00 PM – 06:00 AM",
+      phase: "Sleep Restoration Zone & Clean Space Heating",
+      action: heatingSource === 'wood_or_biomass'
+        ? "Extinguish Fireplace; Switch to Ceramic Zonal Heating + Heavy Weighted Wool Blankets"
+        : heatingSource === 'portable_radiant'
+          ? "Set 2-Hour Sleep Timer on Radiant Heater + Hang Thermal Honeycomb Window Drapes"
+          : "Operate Heat Pump on Night Eco-Mode (20°C) with Bedside Micro-Purifier",
+      why: `During sleep, lung alveoli undergo tissue repair. ${heatingIndoorPM25Hazard}. Maintaining bedroom PM2.5 under 15 µg/m³ reduces morning bronchial tightness by 73% for ${isVulnerable ? 'high-risk family members' : 'adults'}.`,
+      emissionCut: `Clean heating configuration avoids ${(heatingDailyCO2 - 2.1).toFixed(1)} kg CO2 overnight.`
     }
   ];
 
   // 2. Indoor Hacks Tailored to Profile & Housing
   const indoorHacks = [
+    {
+      title: housingType === 'older_apartment' || housingType === 'ground_floor_flat'
+        ? "Stack-Effect Perimeter Gasketing & Silt Stop (Tailored to your Housing)"
+        : "Micro-Thermal Window Gaskets & Acoustic Infiltration Seals",
+      cost: "< $12",
+      materials: "Silicone weatherstrip tape, damp door draft snakes, bubble wrap film on single-pane glass",
+      instructions: `In ${housingName}, winter smog infiltration is driven by warm indoor air rising and sucking in soot through 1-3mm sash gaps. Seal jambs and install weighted draft stoppers at outer doorways.`,
+      pmReduction: "Blocks 65–75% of outdoor soot ingress; retains 25% more indoor heat."
+    },
     {
       title: "Corsi-Rosenthal Box (DIY High-CADR Air Purifier)",
       cost: "$25 - $40 (vs $300 commercial)",
@@ -216,18 +341,17 @@ function generateAIPlan(params) {
       pmReduction: "Reduces indoor PM2.5 by 85–92% in 25 minutes in a 400 sq.ft living area."
     },
     {
-      title: "Draft-Sealing & Micro-Thermal Window Gaskets",
-      cost: "< $10",
-      materials: "Silicone weatherstrip tape, damp door draft snakes, bubble wrap film on single-pane glass",
-      instructions: "Winter smog infiltration occurs through 1-3mm window jamb gaps due to the chimney/stack effect. Seal perimeter cracks and apply damp towel barrier at door base.",
-      pmReduction: "Blocks 65% of outdoor soot ingress; retains 22% more indoor heat."
-    },
-    {
-      title: "Wet Dusting & Static Dust Attraction Protocol",
-      cost: "$0",
-      materials: "Microfiber cloth dampened with dilute water + 2 drops vegetable glycerin or vinegar",
-      instructions: "NEVER dry broom or dry vacuum during smog season; dry sweeping re-suspends settled toxic heavy-metal particles back into breathing zones for 4 hours. Wipe surfaces with damp electrostatic microfiber.",
-      pmReduction: "Prevents secondary aerosol re-suspension by 80%."
+      title: cookingType === 'gas_hob'
+        ? "Kitchen NO2 Containment & Cross-Draft Isolation"
+        : "Wet Dusting & Static Dust Attraction Protocol",
+      cost: cookingType === 'gas_hob' ? "$5" : "$0",
+      materials: cookingType === 'gas_hob' 
+        ? "Kitchen swing-door seal, activated carbon recirculating filter sheet"
+        : "Microfiber cloth dampened with dilute water + 2 drops vegetable glycerin or vinegar",
+      instructions: cookingType === 'gas_hob'
+        ? "Close kitchen interior doors while cooking to prevent heavy nitrogen dioxide and PM2.5 from migrating into bedrooms where children sleep."
+        : "NEVER dry broom or dry vacuum during smog season; dry sweeping re-suspends settled toxic heavy-metal particles back into breathing zones for 4 hours. Wipe surfaces with damp electrostatic microfiber.",
+      pmReduction: cookingType === 'gas_hob' ? "Cuts whole-house NO2 spikes by 60%." : "Prevents secondary aerosol re-suspension by 80%."
     },
     {
       title: "Bio-Phytoremediation Cluster Placement",
@@ -238,35 +362,43 @@ function generateAIPlan(params) {
     }
   ];
 
-  // 3. Sustainable Alternatives & Lifestyle Swaps
+  // 3. Sustainable Alternatives & Lifestyle Swaps tailored directly to selected factors
   const sustainableAlternatives = [
     {
-      currentHabit: heatingSource === 'wood_or_biomass' ? "Burning wood/biomass logs in fireplace" : "Radiant oil/gas space heater on full overnight blast",
-      ecoAlternative: "Reverse-cycle inverter mini-split heat pump or ceramic zonal heater with thermal curtains & weighted wool blankets",
-      impactExplanation: "Biomass fireplaces produce 1,000x more fine soot than gas heaters and degrade indoor AQI to >500. Switching eliminates 12.4 kg CO2/night and removes cancer-linked PAHs (Polycyclic Aromatic Hydrocarbons).",
-      co2SavedKgMonth: 280,
-      monthlyCostDelta: "-$45 (lower fuel expenditure)"
+      factorCategory: "Winter Space Heating",
+      currentHabit: `Current Setup: ${heatingName} (${heatingDailyCO2} kg CO2e/day, ~$${heatingMonthlyCost}/mo)`,
+      ecoAlternative: "Inverter Mini-Split Heat Pump (COP > 3.5) with Heavy Thermal Window Curtains",
+      impactExplanation: heatingSource === 'wood_or_biomass' 
+        ? "Wood combustion generates 1,000x more fine particulate soot than clean electric heat pumps, releasing toxic PAHs directly into residential streets and living rooms."
+        : "Inverter heat pumps deliver 3.5x more thermal heat per kWh of electricity compared to radiant strip heaters, drastically lowering power plant demand.",
+      co2SavedKgMonth: Math.round((heatingDailyCO2 - 2.1) * 30),
+      monthlyCostDelta: `-$${Math.max(15, heatingMonthlyCost - 35)} (heating energy bill saved)`
     },
     {
-      currentHabit: commuteMode === 'car_solo' ? "Solo commute in gasoline/diesel SUV with heater cranked" : "Mixed vehicle daily errand runs",
-      ecoAlternative: "Metro commuter pass + micromobility e-bike/walk for last mile with certified N95 respirator",
-      impactExplanation: "One bus or metro car eliminates 40 private automobiles off congested arteries, drastically reducing road-level NOx and ground-level ozone precursors.",
-      co2SavedKgMonth: 145,
-      monthlyCostDelta: "-$120 (fuel & parking saved)"
+      factorCategory: "Primary Daily Commute",
+      currentHabit: `Current Commute: ${commuteName} (${commuteDailyCO2} kg CO2e/day, ~$${commuteMonthlyCost}/mo)`,
+      ecoAlternative: "Electric Metro / Suburban Rail + Walk/e-Bike Last Mile with N95 Respirator",
+      impactExplanation: commuteMode === 'two_wheeler'
+        ? "Riders on motorbikes sit directly in the concentrated tailpipe slipstream of preceding diesel vehicles. Shifting to rail eliminates 100% of vehicular exhaust inhalation."
+        : "Every passenger vehicle removed from arterial gridlock cuts 4.5+ kg of CO2 and prevents cold-engine idling emissions near schools and residential blocks.",
+      co2SavedKgMonth: Math.round((commuteDailyCO2 - 1.2) * 30),
+      monthlyCostDelta: `-$${Math.max(10, commuteMonthlyCost - 35)} (fuel, tolls & maintenance)`
     },
     {
-      currentHabit: "Open-flame wok cooking and gas hob without cover lids",
-      ecoAlternative: "Induction countertop cooktop or electric pressure cooker (Instant Pot)",
-      impactExplanation: "Induction heating is 85-90% energy efficient (vs 40% for gas burners) and produces zero nitrogen dioxide (NO2), carbon monoxide, or soot indoors.",
-      co2SavedKgMonth: 32,
-      monthlyCostDelta: "-$15"
+      factorCategory: "Kitchen Cooking Setup",
+      currentHabit: `Current Kitchen: ${cookingName} (${cookingDailyCO2} kg CO2e/day, ~$${cookingMonthlyCost}/mo)`,
+      ecoAlternative: "Countertop Magnetic Induction Cooktop + Covered Ceramic Cookware",
+      impactExplanation: "Induction cooking transfers 85-90% of electromagnetic energy directly into cookware without open-flame combustion, totally eliminating harmful indoor nitrogen dioxide (NO2) and carbon monoxide.",
+      co2SavedKgMonth: Math.round((cookingDailyCO2 - 0.7) * 30),
+      monthlyCostDelta: `-$${Math.max(5, cookingMonthlyCost - 14)} (fuel saved)`
     },
     {
-      currentHabit: "Burning dried garden leaves, paper trash or seasonal scrap outdoors",
-      ecoAlternative: "Cold compost trenching / municipal microbial vermicomposting",
-      impactExplanation: "Surface trash burning generates toxic dioxins, furans, and black carbon with global warming potential 3,200x that of CO2 over a 20-year horizon.",
-      co2SavedKgMonth: 95,
-      monthlyCostDelta: "$0"
+      factorCategory: "Housing Envelope Efficiency",
+      currentHabit: `Current Envelope: ${housingName} (~${housingThermalLossKwH} kWh daily loss)`,
+      ecoAlternative: "Perimeter Silicone Weatherstripping, Door Bottom Draft Sweeps & Cellular Honeycomb Shades",
+      impactExplanation: "Sealing air gaps prevents the stack effect from continuously pulling polluted outdoor winter air into your living quarters while keeping 25-30% more warmth trapped inside.",
+      co2SavedKgMonth: Math.round(housingThermalLossKwH * 0.45 * 30 * 0.4),
+      monthlyCostDelta: `-$${Math.round(housingThermalLossKwH * 30 * 0.08 * 0.35)} (reduced thermal load)`
     }
   ];
 
@@ -296,9 +428,19 @@ function generateAIPlan(params) {
       overallStatus: cityData.status,
       currentAqi: cityData.baseAqi,
       familyRiskLevel: isVulnerable ? "High Priority (Children/Elderly Present)" : "Standard Urban Exposure",
-      estimatedCo2SavingsDaily: `${(baselineCO2Kg - optimizedCO2Kg).toFixed(1)} kg CO2e / day`,
-      estimatedExposureReduction: `${pm25ExposureReductionPct}% PM2.5 Inhalation Cut`,
-      inversionStatus: cityData.inversionRisk
+      estimatedCo2SavingsDaily: `${dailyCO2Saved} kg CO2e / day`,
+      estimatedExposureReduction: `${calculatedExposureReduction}% PM2.5 Inhalation Cut`,
+      inversionStatus: cityData.inversionRisk,
+      factorsBreakdown: {
+        housing: { name: housingName, infiltrationRisk: housingInfiltrationLabel, dailyHeatLossKwh: housingThermalLossKwH },
+        commute: { name: commuteName, dailyCO2Kg: commuteDailyCO2, monthlyCostUsd: commuteMonthlyCost, hazard: commuteExposureHazard },
+        heating: { name: heatingName, dailyCO2Kg: heatingDailyCO2, monthlyCostUsd: heatingMonthlyCost, hazard: heatingIndoorPM25Hazard },
+        cooking: { name: cookingName, dailyCO2Kg: cookingDailyCO2, monthlyCostUsd: cookingMonthlyCost, hazard: cookingIndoorToxicity },
+        totalBaselineCO2Daily: `${totalDailyBaselineCO2} kg CO2e/day`,
+        totalBaselineCostMonthly: `$${totalMonthlyBaselineCost}/mo`,
+        totalMonthlyCO2Savings: `${monthlyCO2Saved} kg CO2e/month`,
+        totalMonthlyCostSavings: `$${monthlyCostSaved}/month`
+      }
     },
     routinePlan,
     indoorHacks,
@@ -411,7 +553,6 @@ const server = http.createServer((req, res) => {
   // Static file serving from public/
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
   
-  // Security check to avoid directory traversal
   if (!filePath.startsWith(PUBLIC_DIR)) {
     res.writeHead(403);
     res.end('Forbidden');

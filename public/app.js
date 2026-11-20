@@ -66,6 +66,17 @@ function setupFormHandlers() {
     triggerPlanGeneration();
   });
 
+  // Auto-calculate immediately whenever any of the 4 key factors are changed
+  const factorSelects = ['housingType', 'commuteMode', 'heatingSource', 'cookingType'];
+  factorSelects.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', () => {
+        triggerPlanGeneration();
+      });
+    }
+  });
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     triggerPlanGeneration();
@@ -110,6 +121,7 @@ async function triggerPlanGeneration() {
 
     updateAtmosphericDisplays(data.cityData);
     renderRoutineTimeline(data.routinePlan);
+    renderAuditBreakdown(data.summary.factorsBreakdown);
     renderIndoorHacks(data.indoorHacks);
     renderSustainableAlternatives(data.sustainableAlternatives);
     renderCommunityInitiatives(data.communityInitiatives);
@@ -157,6 +169,90 @@ function updateAtmosphericDisplays(cityData) {
     inversionBadge.innerHTML = `<span class="pulsing-dot" style="background:#10b981;"></span><span>Inversion Status: Moderate / Transitional</span>`;
     inversionBadge.className = 'status-chip';
   }
+}
+
+// Render 4-Factor Carbon, Thermal & Exposure Audit Breakdown
+function renderAuditBreakdown(breakdown) {
+  if (!breakdown) return;
+
+  const container = document.getElementById('auditGrid');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const cardsData = [
+    {
+      category: "Housing Envelope",
+      title: breakdown.housing.name,
+      stat1Lbl: "Daily Thermal Loss",
+      stat1Val: `${breakdown.housing.dailyHeatLossKwh} kWh/day`,
+      stat2Lbl: "Infiltration Profile",
+      stat2Val: breakdown.housing.infiltrationRisk.includes("Severe") ? "Severe Leakage" : "Standard",
+      hazard: breakdown.housing.infiltrationRisk
+    },
+    {
+      category: "Primary Commute",
+      title: breakdown.commute.name,
+      stat1Lbl: "Commute Daily CO2",
+      stat1Val: `${breakdown.commute.dailyCO2Kg} kg CO2e`,
+      stat2Lbl: "Monthly Fuel & Parking",
+      stat2Val: `$${breakdown.commute.monthlyCostUsd}/mo`,
+      hazard: breakdown.commute.hazard
+    },
+    {
+      category: "Winter Space Heating",
+      title: breakdown.heating.name,
+      stat1Lbl: "Heating Daily CO2",
+      stat1Val: `${breakdown.heating.dailyCO2Kg} kg CO2e`,
+      stat2Lbl: "Monthly Heating Bill",
+      stat2Val: `$${breakdown.heating.monthlyCostUsd}/mo`,
+      hazard: breakdown.heating.hazard
+    },
+    {
+      category: "Kitchen Cooking Setup",
+      title: breakdown.cooking.name,
+      stat1Lbl: "Cooking Daily CO2",
+      stat1Val: `${breakdown.cooking.dailyCO2Kg} kg CO2e`,
+      stat2Lbl: "Monthly Cooking Fuel",
+      stat2Val: `$${breakdown.cooking.monthlyCostUsd}/mo`,
+      hazard: breakdown.cooking.hazard
+    }
+  ];
+
+  cardsData.forEach(card => {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'audit-card';
+    cardEl.innerHTML = `
+      <div class="audit-card-head">
+        <span class="audit-category">${escapeHtml(card.category)}</span>
+        <span class="audit-tag">Calculated</span>
+      </div>
+      <h3 class="audit-factor-name">${escapeHtml(card.title)}</h3>
+      <div class="audit-stats-row">
+        <div class="audit-stat-box">
+          <span class="audit-stat-lbl">${escapeHtml(card.stat1Lbl)}</span>
+          <span class="audit-stat-val">${escapeHtml(card.stat1Val)}</span>
+        </div>
+        <div class="audit-stat-box">
+          <span class="audit-stat-lbl">${escapeHtml(card.stat2Lbl)}</span>
+          <span class="audit-stat-val">${escapeHtml(card.stat2Val)}</span>
+        </div>
+      </div>
+      <div class="audit-hazard-box">
+        <strong>Direct Risk:</strong> ${escapeHtml(card.hazard)}
+      </div>
+    `;
+    container.appendChild(cardEl);
+  });
+
+  // Update summary pill & balance box
+  const auditSummaryPill = document.getElementById('auditSummaryPill');
+  if (auditSummaryPill) {
+    auditSummaryPill.innerHTML = `<span>Baseline: ${breakdown.totalBaselineCO2Daily}</span>`;
+  }
+  document.getElementById('auditTotalDailyCO2').innerText = breakdown.totalBaselineCO2Daily;
+  document.getElementById('auditTotalMonthlyCost').innerText = `Estimated Monthly Expense: ${breakdown.totalBaselineCostMonthly}`;
+  document.getElementById('auditOptimizedDailyCO2').innerText = "5.8 kg CO2e / day";
+  document.getElementById('auditMonthlySavings').innerText = `Net Savings: ${breakdown.totalMonthlyCO2Savings} & ${breakdown.totalMonthlyCostSavings}`;
 }
 
 // Render Timeline of Low-Emission Daily Routines
