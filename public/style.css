@@ -9,14 +9,14 @@
   --bg-tertiary: #192436;
   --bg-card: rgba(23, 33, 49, 0.85);
   --bg-card-hover: rgba(29, 42, 63, 0.95);
-  
+
   --border-color: rgba(255, 255, 255, 0.08);
   --border-highlight: rgba(16, 185, 129, 0.3);
-  
+
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  
+
   --accent-green: #10b981;
   --accent-green-glow: rgba(16, 185, 129, 0.25);
   --accent-teal: #06b6d4;
@@ -24,15 +24,15 @@
   --accent-amber: #f59e0b;
   --accent-red: #ef4444;
   --accent-purple: #8b5cf6;
-  
+
   --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  
+
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
   --radius-xl: 24px;
-  
+
   --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
   --shadow-glow: 0 0 25px rgba(16, 185, 129, 0.15);
 }
@@ -49,7 +49,7 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
-  background-image: 
+  background-image:
     radial-gradient(circle at 10% 15%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
     radial-gradient(circle at 90% 85%, rgba(6, 182, 212, 0.08) 0%, transparent 45%),
     linear-gradient(180deg, #0a0f18 0%, #070b12 100%);
@@ -145,9 +145,22 @@ body {
 }
 
 @keyframes pulse {
-  0% { transform: scale(0.9); opacity: 0.7; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-  70% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 7px rgba(239, 68, 68, 0); }
-  100% { transform: scale(0.9); opacity: 0.7; }
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+
+  70% {
+    transform: scale(1.1);
+    opacity: 1;
+    box-shadow: 0 0 0 7px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
 }
 
 .date-chip {
@@ -246,7 +259,8 @@ body {
   flex: 1;
 }
 
-select, input[type="text"] {
+select,
+input[type="text"] {
   width: 100%;
   padding: 0.65rem 0.9rem;
   border-radius: var(--radius-sm);
@@ -259,7 +273,8 @@ select, input[type="text"] {
   transition: all 0.2s ease;
 }
 
-select:focus, input[type="text"]:focus {
+select:focus,
+input[type="text"]:focus {
   border-color: var(--accent-green);
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
@@ -525,8 +540,15 @@ select:focus, input[type="text"]:focus {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .pane-header {
@@ -1324,4 +1346,23 @@ select:focus, input[type="text"]:focus {
 .balance-arrow {
   font-size: 1.8rem;
   opacity: 0.6;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 1000;
+  padding: 10px 16px;
+  background: #1d4ed8;
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: underline;
+  border-radius: 6px;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 16px;
 }
