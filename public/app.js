@@ -5,9 +5,13 @@ let currentPlanData = null;
 let diurnalChartInstance = null;
 let impactChartInstance = null;
 
-// Built-in Atmospheric & City Database
-const CITIES_DB = {
-  delhi: {
+// AetherGuard Front-End Client Application Controller
+// Optimized: frozen city DB, cached DOM elements, in-place Chart.js updates,
+// DocumentFragment batching, lazy tab rendering, 50ms debounce, and WCAG AAA keyboard nav.
+
+// 1. FROZEN CITIES DB
+const CITIES_DB = Object.freeze({
+  delhi: Object.freeze({
     name: "Delhi NCR (New Delhi, India)",
     region: "Indo-Gangetic Plain",
     baseAqi: 384,
@@ -18,8 +22,8 @@ const CITIES_DB = {
     wind: "3.2 km/h NW",
     inversionRisk: "Extreme (Strong Radiation Inversion)",
     advisory: "Red Alert: Inversion cap trapping particulates within 150m of ground. Postpone outdoor jogs until afternoon; run HEPA filtration continuous mode."
-  },
-  canberra: {
+  }),
+  canberra: Object.freeze({
     name: "Canberra, Australia",
     region: "Molonglo & ACT Valley Basin",
     baseAqi: 78,
@@ -30,8 +34,8 @@ const CITIES_DB = {
     wind: "4.5 km/h ESE",
     inversionRisk: "High (Valley Cold-Air Drainage & Wood Smoke Trap)",
     advisory: "Winter Advisory: Nocturnal temperature inversion drains cold air into Tuggeranong valley, trapping residential woodsmoke overnight until late morning."
-  },
-  stockholm: {
+  }),
+  stockholm: Object.freeze({
     name: "Stockholm, Sweden",
     region: "Baltic Archipelago & Lake Mälaren",
     baseAqi: 48,
@@ -42,8 +46,8 @@ const CITIES_DB = {
     wind: "11.5 km/h SW",
     inversionRisk: "Low (Sub-Arctic Coastal Ventilation)",
     advisory: "Favorable Air: Coastal winds maintain good dispersion. Watch street canyon friction dust from winter studded tires on dry days."
-  },
-  beijing: {
+  }),
+  beijing: Object.freeze({
     name: "Beijing, China",
     region: "Northern China Plain",
     baseAqi: 158,
@@ -54,8 +58,8 @@ const CITIES_DB = {
     wind: "8.5 km/h N",
     inversionRisk: "Moderate (Cold front dispersing southern plumes)",
     advisory: "Orange Advisory: Moderate smog corridor. Sensitive groups should wear N95/FFP2 masks outdoors."
-  },
-  london: {
+  }),
+  london: Object.freeze({
     name: "Greater London, UK",
     region: "Thames Valley",
     baseAqi: 74,
@@ -66,8 +70,8 @@ const CITIES_DB = {
     wind: "14.2 km/h SW",
     inversionRisk: "Low (Moist Maritime Front)",
     advisory: "Moderate: High dampness with wood-burner smoke accumulation in residential valleys."
-  },
-  losangeles: {
+  }),
+  losangeles: Object.freeze({
     name: "Los Angeles Basin, USA",
     region: "Southern California Coastal Plain",
     baseAqi: 92,
@@ -78,8 +82,8 @@ const CITIES_DB = {
     wind: "5.8 km/h SW",
     inversionRisk: "Moderate (Marine thermal boundary inversion)",
     advisory: "Caution: Evening marine layer trapping freeway exhaust in basin pockets."
-  },
-  milan: {
+  }),
+  milan: Object.freeze({
     name: "Milan & Po Valley, Italy",
     region: "Po Valley Basin",
     baseAqi: 172,
@@ -90,8 +94,8 @@ const CITIES_DB = {
     wind: "2.0 km/h Calms",
     inversionRisk: "High (Alpine Ring stagnation)",
     advisory: "Unhealthy: Alpine barrier blocking ventilation. Stagnant particulate build-up."
-  },
-  kathmandu: {
+  }),
+  kathmandu: Object.freeze({
     name: "Kathmandu Valley, Nepal",
     region: "Himalayan Bowl",
     baseAqi: 215,
@@ -102,8 +106,8 @@ const CITIES_DB = {
     wind: "1.8 km/h Calm",
     inversionRisk: "Very High (Mountain valley thermal ceiling)",
     advisory: "Health Alert: Valley topography creating thick cold-air lake trapping all ground emissions."
-  },
-  chicago: {
+  }),
+  chicago: Object.freeze({
     name: "Chicago, USA",
     region: "Lake Michigan Basin",
     baseAqi: 62,
@@ -114,8 +118,126 @@ const CITIES_DB = {
     wind: "19.0 km/h WNW",
     inversionRisk: "Low (Breezy ventilation)",
     advisory: "Good to Moderate: Strong lake winds dispersing surface particles."
-  }
+  })
+});
+
+const TIMELINE_ICONS = Object.freeze(['🌅', '🚆', '☀️', '🍲', '🌙']);
+const DIURNAL_LABELS = Object.freeze(['6 AM', '7 AM', '8 AM', '9 AM', '11 AM', '1 PM', '2 PM', '3 PM', '5 PM', '7 PM', '9 PM', '11 PM']);
+const IMPACT_LABELS = Object.freeze(['Standard Winter Baseline', 'With Your Eco-Swaps']);
+
+
+// 2. DOM ELEMENT CACHE
+const DOM = {
+  profileForm: null,
+  citySelect: null,
+  housingSelect: null,
+  commuteSelect: null,
+  heatingSelect: null,
+  cookingSelect: null,
+  pills: null,
+  tabButtons: null,
+  tabPanes: null,
+  savingsPill: null,
+  // Atmospheric readouts
+  cityName: null,
+  region: null,
+  aqiVal: null,
+  pm25: null,
+  pm10: null,
+  temp: null,
+  wind: null,
+  invDesc: null,
+  bubble: null,
+  inversionBadge: null,
+  // Output containers
+  timelineContainer: null,
+  auditContainer: null,
+  auditSummaryPill: null,
+  auditTotalDailyCO2: null,
+  auditTotalMonthlyCost: null,
+  auditOptimizedDailyCO2: null,
+  auditMonthlySavings: null,
+  hacksContainer: null,
+  alternativesContainer: null,
+  communityContainer: null,
+  // Simulator
+  simSwitches: {},
+  simCo2: null,
+  simPm25: null,
+  simCost: null,
+  simTree: null,
+  // Chat & Pledge
+  chatForm: null,
+  chatInput: null,
+  chatMessages: null,
+  pledgeForm: null,
+  pledgeBtn: null,
+  pledgeInput: null,
+  pledgeCounter: null,
+  // Canvases
+  diurnalCanvas: null,
+  impactCanvas: null
 };
+
+function cacheDOMElements() {
+  DOM.profileForm = document.getElementById('profileForm');
+  DOM.citySelect = document.getElementById('citySelect');
+  DOM.housingSelect = document.getElementById('housingType');
+  DOM.commuteSelect = document.getElementById('commuteMode');
+  DOM.heatingSelect = document.getElementById('heatingSource');
+  DOM.cookingSelect = document.getElementById('cookingType');
+  DOM.pills = document.querySelectorAll('.checkbox-pill');
+
+  DOM.tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+  DOM.tabPanes = document.querySelectorAll('.tab-pane');
+  DOM.savingsPill = document.getElementById('savingsPill');
+
+  DOM.cityName = document.getElementById('cityNameDisplay');
+  DOM.region = document.getElementById('regionDisplay');
+  DOM.aqiVal = document.getElementById('aqiVal');
+  DOM.pm25 = document.getElementById('pm25Val');
+  DOM.pm10 = document.getElementById('pm10Val');
+  DOM.temp = document.getElementById('tempVal');
+  DOM.wind = document.getElementById('windVal');
+  DOM.invDesc = document.getElementById('inversionDesc');
+  DOM.bubble = document.getElementById('aqiBubble');
+  DOM.inversionBadge = document.getElementById('inversionBadge');
+
+  DOM.timelineContainer = document.getElementById('routineTimeline');
+  DOM.auditContainer = document.getElementById('auditGrid');
+  DOM.auditSummaryPill = document.getElementById('auditSummaryPill');
+  DOM.auditTotalDailyCO2 = document.getElementById('auditTotalDailyCO2');
+  DOM.auditTotalMonthlyCost = document.getElementById('auditTotalMonthlyCost');
+  DOM.auditOptimizedDailyCO2 = document.getElementById('auditOptimizedDailyCO2');
+  DOM.auditMonthlySavings = document.getElementById('auditMonthlySavings');
+  DOM.hacksContainer = document.getElementById('hacksGrid');
+  DOM.alternativesContainer = document.getElementById('alternativesList');
+  DOM.communityContainer = document.getElementById('communityGrid');
+
+  DOM.simSwitches = {
+    car: document.getElementById('simCarPool'),
+    heating: document.getElementById('simHeating'),
+    induction: document.getElementById('simInduction'),
+    corsi: document.getElementById('simCorsi'),
+    noTrash: document.getElementById('simNoTrash')
+  };
+  DOM.simCo2 = document.getElementById('simCo2Value');
+  DOM.simPm25 = document.getElementById('simPm25Value');
+  DOM.simCost = document.getElementById('simCostValue');
+  DOM.simTree = document.getElementById('simTreeEq');
+
+  DOM.chatForm = document.getElementById('chatForm');
+  DOM.chatInput = document.getElementById('chatInput');
+  DOM.chatMessages = document.getElementById('chatMessages');
+
+  DOM.pledgeForm = document.getElementById('pledgeForm');
+  DOM.pledgeBtn = document.getElementById('pledgeBtn');
+  DOM.pledgeInput = document.getElementById('pledgeName');
+  DOM.pledgeCounter = document.getElementById('pledgeCounter');
+
+  DOM.diurnalCanvas = document.getElementById('diurnalChart');
+  DOM.impactCanvas = document.getElementById('impactChart');
+}
 
 // Debounce Utility
 function debounce(fn, delay = 50) {
@@ -390,20 +512,53 @@ function computeClientPlan(payload) {
 
 // Initialization on DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
+  cacheDOMElements();
   setupTabs();
   setupFormHandlers();
   setupSimulators();
   setupChatHandlers();
   setupPledge();
 
-  // Load initial plan immediately
   triggerPlanGeneration();
 });
 
-// Setup Navigation Tabs with Keyboard Navigation (WCAG 2.1 Level AAA)
+// 3. LAZY TAB RENDERING + WCAG AAA KEYBOARD NAVIGATION
+function renderTabContent(tabId, plan) {
+  if (!plan || renderedTabs.has(tabId)) return;
+
+  switch (tabId) {
+    case 'routine':
+      renderRoutineTimeline(plan.routinePlan);
+      renderDiurnalChart(plan.cityData);
+      break;
+    case 'footprint':
+      renderAuditBreakdown(plan.summary ? plan.summary.factorsBreakdown : null);
+      break;
+    case 'hacks':
+      renderIndoorHacks(plan.indoorHacks);
+      break;
+    case 'alternatives':
+      renderSustainableAlternatives(plan.sustainableAlternatives);
+      break;
+    case 'simulator':
+      updateSimulatorMetrics();
+      break;
+    case 'community':
+      renderCommunityInitiatives(plan.communityInitiatives);
+      break;
+  }
+
+  renderedTabs.add(tabId);
+}
+
+function getActiveTabId() {
+  const activeBtn = DOM.tabButtons.find(b => b.classList.contains('active'));
+  return activeBtn ? activeBtn.getAttribute('data-tab') : 'routine';
+}
+
 function setupTabs() {
-  const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
-  const tabPanes = Array.from(document.querySelectorAll('.tab-pane'));
+  const tabButtons = DOM.tabButtons;
+  const tabPanes = DOM.tabPanes;
 
   function activateTab(btn) {
     const targetTab = btn.getAttribute('data-tab');
@@ -421,6 +576,8 @@ function setupTabs() {
       pane.classList.add('active');
     }
 
+    renderTabContent(targetTab, currentPlanData);
+
     if (targetTab === 'routine' && diurnalChartInstance) {
       diurnalChartInstance.resize();
     }
@@ -432,7 +589,6 @@ function setupTabs() {
   tabButtons.forEach((btn, index) => {
     btn.addEventListener('click', () => activateTab(btn));
 
-    // Keyboard Navigation Support (WCAG 2.1 Level AAA)
     btn.addEventListener('keydown', (e) => {
       let targetIndex = null;
       if (e.key === 'ArrowRight') targetIndex = (index + 1) % tabButtons.length;
@@ -442,99 +598,92 @@ function setupTabs() {
       if (targetIndex !== null) {
         e.preventDefault();
         tabButtons[targetIndex].focus();
-        tabButtons[targetIndex].click();
+        activateTab(tabButtons[targetIndex]);
       }
     });
   });
 }
 
-// Setup Form Submission & Debounced Dynamic Change Listeners
+// Setup Form Submission & 50ms Debounced Change Listeners
 function setupFormHandlers() {
-  const form = document.getElementById('profileForm');
-  const citySelect = document.getElementById('citySelect');
   const debouncedTriggerPlanGeneration = debounce(() => {
     triggerPlanGeneration();
   }, 50);
 
-  const pills = document.querySelectorAll('.checkbox-pill');
-  pills.forEach(pill => {
-    const cb = pill.querySelector('input[type="checkbox"]');
-    pill.addEventListener('click', (e) => {
-      if (e.target !== cb) {
-        cb.checked = !cb.checked;
-      }
-      pill.classList.toggle('active', cb.checked);
-      debouncedTriggerPlanGeneration();
+  if (DOM.pills) {
+    DOM.pills.forEach(pill => {
+      const cb = pill.querySelector('input[type="checkbox"]');
+      pill.addEventListener('click', (e) => {
+        if (e.target !== cb && cb) {
+          cb.checked = !cb.checked;
+        }
+        if (cb) {
+          pill.classList.toggle('active', cb.checked);
+        }
+        debouncedTriggerPlanGeneration();
+      });
     });
-  });
-
-  if (citySelect) {
-    citySelect.addEventListener('change', debouncedTriggerPlanGeneration);
   }
 
-  // Auto-calculate (debounced 50ms) whenever any of the 4 key factors change
-  const factorSelects = ['housingType', 'commuteMode', 'heatingSource', 'cookingType'];
-  factorSelects.forEach(id => {
-    const el = document.getElementById(id);
+  if (DOM.citySelect) {
+    DOM.citySelect.addEventListener('change', debouncedTriggerPlanGeneration);
+  }
+
+  const factorSelects = [DOM.housingSelect, DOM.commuteSelect, DOM.heatingSelect, DOM.cookingSelect];
+  factorSelects.forEach(el => {
     if (el) {
       el.addEventListener('change', debouncedTriggerPlanGeneration);
     }
   });
 
-  if (form) {
-    form.addEventListener('submit', (e) => {
+  if (DOM.profileForm) {
+    DOM.profileForm.addEventListener('submit', (e) => {
       e.preventDefault();
       triggerPlanGeneration();
     });
   }
 }
 
-// Fetch Plan (Client Calculation with Zero Network Failure)
 function triggerPlanGeneration() {
-  const city = document.getElementById('citySelect') ? document.getElementById('citySelect').value : 'delhi';
-  const housingType = document.getElementById('housingType') ? document.getElementById('housingType').value : 'independent_house';
-  const commuteMode = document.getElementById('commuteMode') ? document.getElementById('commuteMode').value : 'car_solo';
-  const heatingSource = document.getElementById('heatingSource') ? document.getElementById('heatingSource').value : 'portable_radiant';
-  const cookingType = document.getElementById('cookingType') ? document.getElementById('cookingType').value : 'gas_hob';
+  const city = DOM.citySelect ? DOM.citySelect.value : 'delhi';
+  const housingType = DOM.housingSelect ? DOM.housingSelect.value : 'independent_house';
+  const commuteMode = DOM.commuteSelect ? DOM.commuteSelect.value : 'car_solo';
+  const heatingSource = DOM.heatingSelect ? DOM.heatingSelect.value : 'portable_radiant';
+  const cookingType = DOM.cookingSelect ? DOM.cookingSelect.value : 'gas_hob';
 
   const checkedPills = Array.from(document.querySelectorAll('input[name="familyProfile"]:checked'))
     .map(cb => cb.value);
 
-  const payload = {
+  const data = computeClientPlan({
     city,
     familyProfile: checkedPills,
     housingType,
     commuteMode,
     heatingSource,
     dailyHabits: [cookingType]
-  };
+  });
 
-  // Instant client-side computation (Never fails on Netlify or localhost)
-  const data = computeClientPlan(payload);
   currentPlanData = data;
+  renderedTabs.clear();
 
   updateAtmosphericDisplays(data.cityData);
-  renderRoutineTimeline(data.routinePlan);
-  renderAuditBreakdown(data.summary ? data.summary.factorsBreakdown : null);
-  renderIndoorHacks(data.indoorHacks);
-  renderSustainableAlternatives(data.sustainableAlternatives);
-  renderCommunityInitiatives(data.communityInitiatives);
-  renderDiurnalChart(data.cityData);
-  updateSimulatorMetrics();
 
-  const savingsPill = document.getElementById('savingsPill');
-  if (savingsPill && data.summary) {
-    savingsPill.innerText = data.summary.estimatedExposureReduction;
+  if (DOM.savingsPill && data.summary) {
+    DOM.savingsPill.innerText = data.summary.estimatedExposureReduction;
+  }
+
+  const activeTabId = getActiveTabId();
+  renderTabContent(activeTabId, data);
+
+  // Keep diurnal chart updated if routine tab is active or chart already exists
+  if (activeTabId !== 'routine' && diurnalChartInstance) {
+    renderDiurnalChart(data.cityData);
   }
 }
 
-// Render 4-Factor Carbon, Thermal & Exposure Audit Breakdown
+// 4. DOCUMENTFRAGMENT-BASED BATCH RENDERING
 function renderAuditBreakdown(breakdown) {
-  if (!breakdown) return;
-
-  const container = document.getElementById('auditGrid');
-  if (!container) return;
-  container.innerHTML = '';
+  if (!breakdown || !DOM.auditContainer) return;
 
   const cardsData = [
     {
@@ -575,6 +724,7 @@ function renderAuditBreakdown(breakdown) {
     }
   ];
 
+  const fragment = document.createDocumentFragment();
   cardsData.forEach(card => {
     const cardEl = document.createElement('div');
     cardEl.className = 'audit-card';
@@ -598,91 +748,66 @@ function renderAuditBreakdown(breakdown) {
         <strong>Direct Risk:</strong> ${escapeHtml(card.hazard)}
       </div>
     `;
-    container.appendChild(cardEl);
+    fragment.appendChild(cardEl);
   });
 
-  const auditSummaryPill = document.getElementById('auditSummaryPill');
-  if (auditSummaryPill) {
-    auditSummaryPill.innerHTML = `<span>Baseline: ${breakdown.totalBaselineCO2Daily}</span>`;
+  DOM.auditContainer.innerHTML = '';
+  DOM.auditContainer.appendChild(fragment);
+
+  if (DOM.auditSummaryPill) {
+    DOM.auditSummaryPill.innerHTML = `<span>Baseline: ${escapeHtml(breakdown.totalBaselineCO2Daily)}</span>`;
   }
-  const elDaily = document.getElementById('auditTotalDailyCO2');
-  if (elDaily) elDaily.innerText = breakdown.totalBaselineCO2Daily;
-
-  const elCost = document.getElementById('auditTotalMonthlyCost');
-  if (elCost) elCost.innerText = `Estimated Monthly Expense: ${breakdown.totalBaselineCostMonthly}`;
-
-  const elOpt = document.getElementById('auditOptimizedDailyCO2');
-  if (elOpt) elOpt.innerText = "5.8 kg CO2e / day";
-
-  const elSav = document.getElementById('auditMonthlySavings');
-  if (elSav) elSav.innerText = `Net Savings: ${breakdown.totalMonthlyCO2Savings} & ${breakdown.totalMonthlyCostSavings}`;
+  if (DOM.auditTotalDailyCO2) DOM.auditTotalDailyCO2.innerText = breakdown.totalBaselineCO2Daily;
+  if (DOM.auditTotalMonthlyCost) DOM.auditTotalMonthlyCost.innerText = `Estimated Monthly Expense: ${breakdown.totalBaselineCostMonthly}`;
+  if (DOM.auditOptimizedDailyCO2) DOM.auditOptimizedDailyCO2.innerText = "5.8 kg CO2e / day";
+  if (DOM.auditMonthlySavings) {
+    DOM.auditMonthlySavings.innerText = `Net Savings: ${breakdown.totalMonthlyCO2Savings} & ${breakdown.totalMonthlyCostSavings}`;
+  }
 }
 
-// Update Left-Hand Weather & AQI Readouts
 function updateAtmosphericDisplays(cityData) {
   if (!cityData) return;
 
-  const cityName = document.getElementById('cityNameDisplay');
-  if (cityName) cityName.innerText = cityData.name;
+  if (DOM.cityName) DOM.cityName.innerText = cityData.name;
+  if (DOM.region) DOM.region.innerText = cityData.region;
+  if (DOM.aqiVal) DOM.aqiVal.innerText = cityData.baseAqi;
+  if (DOM.pm25) DOM.pm25.innerText = `${cityData.pm25} µg/m³`;
+  if (DOM.pm10) DOM.pm10.innerText = `${cityData.pm10} µg/m³`;
+  if (DOM.temp) DOM.temp.innerText = cityData.temp;
+  if (DOM.wind) DOM.wind.innerText = cityData.wind;
+  if (DOM.invDesc) DOM.invDesc.innerText = cityData.advisory;
 
-  const region = document.getElementById('regionDisplay');
-  if (region) region.innerText = cityData.region;
-
-  const aqiVal = document.getElementById('aqiVal');
-  if (aqiVal) aqiVal.innerText = cityData.baseAqi;
-
-  const pm25 = document.getElementById('pm25Val');
-  if (pm25) pm25.innerText = `${cityData.pm25} µg/m³`;
-
-  const pm10 = document.getElementById('pm10Val');
-  if (pm10) pm10.innerText = `${cityData.pm10} µg/m³`;
-
-  const temp = document.getElementById('tempVal');
-  if (temp) temp.innerText = cityData.temp;
-
-  const wind = document.getElementById('windVal');
-  if (wind) wind.innerText = cityData.wind;
-
-  const invDesc = document.getElementById('inversionDesc');
-  if (invDesc) invDesc.innerText = cityData.advisory;
-
-  const bubble = document.getElementById('aqiBubble');
-  if (bubble) {
-    bubble.className = 'aqi-bubble';
+  if (DOM.bubble) {
+    DOM.bubble.className = 'aqi-bubble';
     if (cityData.baseAqi >= 300) {
-      bubble.classList.add('severe');
+      DOM.bubble.classList.add('severe');
     } else if (cityData.baseAqi >= 150) {
-      bubble.classList.add('unhealthy');
+      DOM.bubble.classList.add('unhealthy');
     } else {
-      bubble.classList.add('moderate');
+      DOM.bubble.classList.add('moderate');
     }
   }
 
-  const inversionBadge = document.getElementById('inversionBadge');
-  if (inversionBadge) {
+  if (DOM.inversionBadge) {
     if (cityData.baseAqi > 200) {
-      inversionBadge.innerHTML = `<span class="pulsing-dot" aria-hidden="true"></span><span>Critical Alert: Thermal Inversion Cap Active</span>`;
-      inversionBadge.className = 'status-chip high';
+      DOM.inversionBadge.innerHTML = `<span class="pulsing-dot" aria-hidden="true"></span><span>Critical Alert: Thermal Inversion Cap Active</span>`;
+      DOM.inversionBadge.className = 'status-chip high';
     } else {
-      inversionBadge.innerHTML = `<span class="pulsing-dot" aria-hidden="true" style="background:#10b981;"></span><span>Inversion Status: Moderate / Transitional</span>`;
-      inversionBadge.className = 'status-chip';
+      DOM.inversionBadge.innerHTML = `<span class="pulsing-dot" aria-hidden="true" style="background:#10b981;"></span><span>Inversion Status: Moderate / Transitional</span>`;
+      DOM.inversionBadge.className = 'status-chip';
     }
   }
 }
 
-// Render Timeline of Low-Emission Daily Routines
 function renderRoutineTimeline(routine) {
-  const container = document.getElementById('routineTimeline');
-  if (!container || !routine) return;
-  container.innerHTML = '';
+  if (!DOM.timelineContainer || !routine) return;
 
-  const icons = ['🌅', '🚆', '☀️', '🍲', '🌙'];
-
+  const fragment = document.createDocumentFragment();
   routine.forEach((step, idx) => {
     const item = document.createElement('div');
     item.className = 'timeline-item';
     item.innerHTML = `
-      <div class="timeline-dot" aria-hidden="true">${icons[idx % icons.length]}</div>
+      <div class="timeline-dot" aria-hidden="true">${TIMELINE_ICONS[idx % TIMELINE_ICONS.length]}</div>
       <div class="timeline-card">
         <div class="timeline-head">
           <span class="time-window">${escapeHtml(step.timeWindow)}</span>
@@ -695,16 +820,17 @@ function renderRoutineTimeline(routine) {
         </div>
       </div>
     `;
-    container.appendChild(item);
+    fragment.appendChild(item);
   });
+
+  DOM.timelineContainer.innerHTML = '';
+  DOM.timelineContainer.appendChild(fragment);
 }
 
-// Render Indoor Hacks Grid
 function renderIndoorHacks(hacks) {
-  const grid = document.getElementById('hacksGrid');
-  if (!grid || !hacks) return;
-  grid.innerHTML = '';
+  if (!DOM.hacksContainer || !hacks) return;
 
+  const fragment = document.createDocumentFragment();
   hacks.forEach(hack => {
     const card = document.createElement('div');
     card.className = 'hack-card';
@@ -725,16 +851,17 @@ function renderIndoorHacks(hacks) {
         <span aria-hidden="true">🛡️</span> ${escapeHtml(hack.pmReduction)}
       </div>
     `;
-    grid.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  DOM.hacksContainer.innerHTML = '';
+  DOM.hacksContainer.appendChild(fragment);
 }
 
-// Render Sustainable Alternatives List
 function renderSustainableAlternatives(alternatives) {
-  const list = document.getElementById('alternativesList');
-  if (!list || !alternatives) return;
-  list.innerHTML = '';
+  if (!DOM.alternativesContainer || !alternatives) return;
 
+  const fragment = document.createDocumentFragment();
   alternatives.forEach(alt => {
     const card = document.createElement('div');
     card.className = 'alt-item';
@@ -763,16 +890,17 @@ function renderSustainableAlternatives(alternatives) {
         </div>
       </div>
     `;
-    list.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  DOM.alternativesContainer.innerHTML = '';
+  DOM.alternativesContainer.appendChild(fragment);
 }
 
-// Render Community Collective Action Hub
 function renderCommunityInitiatives(initiatives) {
-  const grid = document.getElementById('communityGrid');
-  if (!grid || !initiatives) return;
-  grid.innerHTML = '';
+  if (!DOM.communityContainer || !initiatives) return;
 
+  const fragment = document.createDocumentFragment();
   initiatives.forEach(item => {
     const card = document.createElement('div');
     card.className = 'community-card';
@@ -783,30 +911,37 @@ function renderCommunityInitiatives(initiatives) {
         <strong>Community Payoff:</strong> ${escapeHtml(item.collectiveImpact)}
       </div>
     `;
-    grid.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  DOM.communityContainer.innerHTML = '';
+  DOM.communityContainer.appendChild(fragment);
 }
 
-// Render Diurnal Chart
+// 5. IN-PLACE CHART.JS UPDATES
 function renderDiurnalChart(cityData) {
-  const canvas = document.getElementById('diurnalChart');
-  if (!canvas || !cityData || typeof Chart === 'undefined') return;
-  const ctx = canvas.getContext('2d');
-  const base = cityData.baseAqi;
+  if (!DOM.diurnalCanvas || !cityData || typeof Chart === 'undefined') return;
 
+  const base = cityData.baseAqi;
   const hourlyData = [
     base * 0.95, base * 1.05, base * 1.15, base * 1.25, base * 1.10, base * 0.85,
     base * 0.60, base * 0.52, base * 0.58, base * 0.80, base * 1.05, base * 1.20
   ];
+  const safeWindowData = [
+    null, null, null, null, null, base * 0.52, base * 0.50, base * 0.55, null, null, null, null
+  ];
 
   if (diurnalChartInstance) {
-    diurnalChartInstance.destroy();
+    diurnalChartInstance.data.datasets[0].data = hourlyData;
+    diurnalChartInstance.data.datasets[1].data = safeWindowData;
+    diurnalChartInstance.update('none');
+    return;
   }
 
-  diurnalChartInstance = new Chart(ctx, {
+  diurnalChartInstance = new Chart(DOM.diurnalCanvas.getContext('2d'), {
     type: 'line',
     data: {
-      labels: ['6 AM', '7 AM', '8 AM', '9 AM', '11 AM', '1 PM', '2 PM', '3 PM', '5 PM', '7 PM', '9 PM', '11 PM'],
+      labels: DIURNAL_LABELS,
       datasets: [
         {
           label: 'Outdoor PM2.5 / Smog Severity (µg/m³ equivalent)',
@@ -820,7 +955,7 @@ function renderDiurnalChart(cityData) {
         },
         {
           label: 'Safe Inversion Dispersion Window',
-          data: [null, null, null, null, null, base * 0.52, base * 0.50, base * 0.55, null, null, null, null],
+          data: safeWindowData,
           borderColor: '#10b981',
           borderWidth: 4,
           pointRadius: 6,
@@ -831,6 +966,7 @@ function renderDiurnalChart(cityData) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
       plugins: {
         legend: {
           labels: { color: '#94a3b8', font: { size: 11, family: 'Plus Jakarta Sans' } }
@@ -852,66 +988,55 @@ function renderDiurnalChart(cityData) {
 
 // Setup Interactive Emissions & Exposure Simulator
 function setupSimulators() {
-  const switches = ['simCarPool', 'simHeating', 'simInduction', 'simCorsi', 'simNoTrash'];
-  switches.forEach(id => {
-    const el = document.getElementById(id);
+  Object.values(DOM.simSwitches).forEach(el => {
     if (el) el.addEventListener('change', updateSimulatorMetrics);
   });
 }
 
 function updateSimulatorMetrics() {
-  const car = document.getElementById('simCarPool') ? document.getElementById('simCarPool').checked : false;
-  const heating = document.getElementById('simHeating') ? document.getElementById('simHeating').checked : false;
-  const induction = document.getElementById('simInduction') ? document.getElementById('simInduction').checked : false;
-  const corsi = document.getElementById('simCorsi') ? document.getElementById('simCorsi').checked : false;
-  const noTrash = document.getElementById('simNoTrash') ? document.getElementById('simNoTrash').checked : false;
+  const { car, heating, induction, corsi, noTrash } = DOM.simSwitches;
 
   let totalCo2Month = 0;
   let pmReductionPct = 0;
   let costSaved = 0;
 
-  if (car) { totalCo2Month += 144; pmReductionPct += 20; costSaved += 85; }
-  if (heating) { totalCo2Month += 240; pmReductionPct += 35; costSaved += 65; }
-  if (induction) { totalCo2Month += 32; pmReductionPct += 15; costSaved += 15; }
-  if (corsi) { totalCo2Month += 18; pmReductionPct += 25; costSaved += 20; }
-  if (noTrash) { totalCo2Month += 90; pmReductionPct += 18; costSaved += 0; }
+  if (car && car.checked) { totalCo2Month += 144; pmReductionPct += 20; costSaved += 85; }
+  if (heating && heating.checked) { totalCo2Month += 240; pmReductionPct += 35; costSaved += 65; }
+  if (induction && induction.checked) { totalCo2Month += 32; pmReductionPct += 15; costSaved += 15; }
+  if (corsi && corsi.checked) { totalCo2Month += 18; pmReductionPct += 25; costSaved += 20; }
+  if (noTrash && noTrash.checked) { totalCo2Month += 90; pmReductionPct += 18; costSaved += 0; }
 
   const finalPmReduction = Math.min(pmReductionPct, 92);
   const treeCount = Math.round(totalCo2Month / 20);
 
-  const elCo2 = document.getElementById('simCo2Value');
-  if (elCo2) elCo2.innerText = `${totalCo2Month} kg`;
-
-  const elPm = document.getElementById('simPm25Value');
-  if (elPm) elPm.innerText = `-${finalPmReduction}%`;
-
-  const elCost = document.getElementById('simCostValue');
-  if (elCost) elCost.innerText = `$${costSaved}`;
-
-  const elTree = document.getElementById('simTreeEq');
-  if (elTree) elTree.innerText = `Equivalent to planting ${treeCount} mature urban trees`;
+  if (DOM.simCo2) DOM.simCo2.innerText = `${totalCo2Month} kg`;
+  if (DOM.simPm25) DOM.simPm25.innerText = `-${finalPmReduction}%`;
+  if (DOM.simCost) DOM.simCost.innerText = `$${costSaved}`;
+  if (DOM.simTree) DOM.simTree.innerText = `Equivalent to planting ${treeCount} mature urban trees`;
 
   renderImpactChart(totalCo2Month);
 }
 
 function renderImpactChart(co2Saved) {
-  const canvas = document.getElementById('impactChart');
-  if (!canvas || typeof Chart === 'undefined') return;
-  const ctx = canvas.getContext('2d');
+  if (!DOM.impactCanvas || typeof Chart === 'undefined') return;
+
   const baseline = 520;
   const withActions = Math.max(baseline - co2Saved, 40);
+  const nextData = [baseline, withActions];
 
   if (impactChartInstance) {
-    impactChartInstance.destroy();
+    impactChartInstance.data.datasets[0].data = nextData;
+    impactChartInstance.update('none');
+    return;
   }
 
-  impactChartInstance = new Chart(ctx, {
+  impactChartInstance = new Chart(DOM.impactCanvas.getContext('2d'), {
     type: 'bar',
     data: {
-      labels: ['Standard Winter Baseline', 'With Your Eco-Swaps'],
+      labels: IMPACT_LABELS,
       datasets: [{
         label: 'Monthly Household Carbon Footprint (kg CO2e)',
-        data: [baseline, withActions],
+        data: nextData,
         backgroundColor: ['rgba(239, 68, 68, 0.75)', 'rgba(16, 185, 129, 0.85)'],
         borderColor: ['#ef4444', '#10b981'],
         borderWidth: 1.5,
@@ -921,6 +1046,7 @@ function renderImpactChart(co2Saved) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
       plugins: {
         legend: { display: false }
       },
@@ -938,26 +1064,23 @@ function renderImpactChart(co2Saved) {
   });
 }
 
-// Setup Built-In Conversational Air Copilot (No Server Needed)
+// Setup Built-In Conversational Air Copilot
 function setupChatHandlers() {
-  const form = document.getElementById('chatForm');
-  const input = document.getElementById('chatInput');
-  if (!form || !input) return;
+  if (!DOM.chatForm || !DOM.chatInput) return;
 
-  form.addEventListener('submit', (e) => {
+  DOM.chatForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const query = input.value.trim();
+    const query = DOM.chatInput.value.trim();
     if (!query) return;
 
     appendChatMessage('user', query);
-    input.value = '';
-
+    DOM.chatInput.value = '';
     replyToQuery(query);
   });
 }
 
 function askCopilot(question) {
-  const chatTabBtn = document.querySelector('.tab-btn[data-tab="chat"]');
+  const chatTabBtn = DOM.tabButtons.find(btn => btn.getAttribute('data-tab') === 'chat');
   if (chatTabBtn) {
     chatTabBtn.click();
     chatTabBtn.focus();
@@ -998,8 +1121,7 @@ function replyToQuery(question) {
 }
 
 function appendChatMessage(sender, text, suggestedAction = null) {
-  const container = document.getElementById('chatMessages');
-  if (!container) return;
+  if (!DOM.chatMessages) return;
   const bubble = document.createElement('div');
   bubble.className = `chat-bubble ${sender}`;
 
@@ -1019,37 +1141,33 @@ function appendChatMessage(sender, text, suggestedAction = null) {
     </div>
   `;
 
-  container.appendChild(bubble);
-  container.scrollTop = container.scrollHeight;
+  DOM.chatMessages.appendChild(bubble);
+  DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
 }
 
 // Community Pledge Compact
 function setupPledge() {
-  const form = document.getElementById('pledgeForm');
-  const btn = document.getElementById('pledgeBtn');
-  const input = document.getElementById('pledgeName');
-  const counter = document.getElementById('pledgeCounter');
-  if (!btn || !input || !counter) return;
+  if (!DOM.pledgeBtn || !DOM.pledgeInput || !DOM.pledgeCounter) return;
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
-    const val = input.value.trim();
+    const val = DOM.pledgeInput.value.trim();
     if (!val) {
-      alert('Please enter your colony, neighborhood, or building name!');
-      input.focus();
+      DOM.pledgeCounter.innerHTML = `<span aria-hidden="true">⚠️</span> <strong>Please enter your colony, neighborhood, or building name</strong> before signing.`;
+      DOM.pledgeInput.focus();
       return;
     }
 
-    btn.innerText = 'Compact Signed! 🛡️';
-    btn.disabled = true;
-    input.disabled = true;
-    counter.innerHTML = `<span aria-hidden="true">🛡️</span> <strong>1,429 families</strong> across 43 urban clusters have joined the winter compact. (Welcome, <em>${escapeHtml(val)}</em>!)`;
+    DOM.pledgeBtn.innerText = 'Compact Signed! 🛡️';
+    DOM.pledgeBtn.disabled = true;
+    DOM.pledgeInput.disabled = true;
+    DOM.pledgeCounter.innerHTML = `<span aria-hidden="true">🛡️</span> <strong>1,429 families</strong> across 43 urban clusters have joined the winter compact. (Welcome, <em>${escapeHtml(val)}</em>!)`;
   };
 
-  if (form) {
-    form.addEventListener('submit', handleSubmit);
+  if (DOM.pledgeForm) {
+    DOM.pledgeForm.addEventListener('submit', handleSubmit);
   } else {
-    btn.addEventListener('click', handleSubmit);
+    DOM.pledgeBtn.addEventListener('click', handleSubmit);
   }
 }
 
