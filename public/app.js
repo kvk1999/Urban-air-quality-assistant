@@ -117,6 +117,15 @@ const CITIES_DB = {
   }
 };
 
+// Debounce Utility
+function debounce(fn, delay = 50) {
+  let timerId = null;
+  return (...args) => {
+    clearTimeout(timerId);
+    timerId = setTimeout(() => fn(...args), delay);
+  };
+}
+
 // Client-Side Calculation Engine (Never Fails, No Server Required)
 function computeClientPlan(payload) {
   const cityKey = (payload.city || 'delhi').toLowerCase();
@@ -391,38 +400,61 @@ document.addEventListener('DOMContentLoaded', () => {
   triggerPlanGeneration();
 });
 
-// Setup Navigation Tabs
+// Setup Navigation Tabs with Keyboard Navigation (WCAG 2.1 Level AAA)
 function setupTabs() {
-  const tabButtons = document.querySelectorAll('.tab-btn');
-  const tabPanes = document.querySelectorAll('.tab-pane');
+  const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+  const tabPanes = Array.from(document.querySelectorAll('.tab-pane'));
 
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetTab = btn.getAttribute('data-tab');
+  function activateTab(btn) {
+    const targetTab = btn.getAttribute('data-tab');
 
-      tabButtons.forEach(b => b.classList.remove('active'));
-      tabPanes.forEach(p => p.classList.remove('active'));
+    tabButtons.forEach(b => {
+      const isSelected = b === btn;
+      b.classList.toggle('active', isSelected);
+      b.setAttribute('aria-selected', String(isSelected));
+      b.setAttribute('tabindex', isSelected ? '0' : '-1');
+    });
 
-      btn.classList.add('active');
-      const pane = document.getElementById(`pane-${targetTab}`);
-      if (pane) {
-        pane.classList.add('active');
-      }
+    tabPanes.forEach(p => p.classList.remove('active'));
+    const pane = document.getElementById(`pane-${targetTab}`);
+    if (pane) {
+      pane.classList.add('active');
+    }
 
-      if (targetTab === 'routine' && diurnalChartInstance) {
-        diurnalChartInstance.resize();
-      }
-      if (targetTab === 'simulator' && impactChartInstance) {
-        impactChartInstance.resize();
+    if (targetTab === 'routine' && diurnalChartInstance) {
+      diurnalChartInstance.resize();
+    }
+    if (targetTab === 'simulator' && impactChartInstance) {
+      impactChartInstance.resize();
+    }
+  }
+
+  tabButtons.forEach((btn, index) => {
+    btn.addEventListener('click', () => activateTab(btn));
+
+    // Keyboard Navigation Support (WCAG 2.1 Level AAA)
+    btn.addEventListener('keydown', (e) => {
+      let targetIndex = null;
+      if (e.key === 'ArrowRight') targetIndex = (index + 1) % tabButtons.length;
+      if (e.key === 'ArrowLeft') targetIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+      if (e.key === 'Home') targetIndex = 0;
+      if (e.key === 'End') targetIndex = tabButtons.length - 1;
+      if (targetIndex !== null) {
+        e.preventDefault();
+        tabButtons[targetIndex].focus();
+        tabButtons[targetIndex].click();
       }
     });
   });
 }
 
-// Setup Form Submission & Dynamic Change Listeners
+// Setup Form Submission & Debounced Dynamic Change Listeners
 function setupFormHandlers() {
   const form = document.getElementById('profileForm');
   const citySelect = document.getElementById('citySelect');
+  const debouncedTriggerPlanGeneration = debounce(() => {
+    triggerPlanGeneration();
+  }, 50);
 
   const pills = document.querySelectorAll('.checkbox-pill');
   pills.forEach(pill => {
@@ -432,24 +464,20 @@ function setupFormHandlers() {
         cb.checked = !cb.checked;
       }
       pill.classList.toggle('active', cb.checked);
-      triggerPlanGeneration();
+      debouncedTriggerPlanGeneration();
     });
   });
 
   if (citySelect) {
-    citySelect.addEventListener('change', () => {
-      triggerPlanGeneration();
-    });
+    citySelect.addEventListener('change', debouncedTriggerPlanGeneration);
   }
 
-  // Auto-calculate immediately whenever any of the 4 key factors change
+  // Auto-calculate (debounced 50ms) whenever any of the 4 key factors change
   const factorSelects = ['housingType', 'commuteMode', 'heatingSource', 'cookingType'];
   factorSelects.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      el.addEventListener('change', () => {
-        triggerPlanGeneration();
-      });
+      el.addEventListener('change', debouncedTriggerPlanGeneration);
     }
   });
 
@@ -633,10 +661,10 @@ function updateAtmosphericDisplays(cityData) {
   const inversionBadge = document.getElementById('inversionBadge');
   if (inversionBadge) {
     if (cityData.baseAqi > 200) {
-      inversionBadge.innerHTML = `<span class="pulsing-dot"></span><span>Critical Alert: Thermal Inversion Cap Active</span>`;
+      inversionBadge.innerHTML = `<span class="pulsing-dot" aria-hidden="true"></span><span>Critical Alert: Thermal Inversion Cap Active</span>`;
       inversionBadge.className = 'status-chip high';
     } else {
-      inversionBadge.innerHTML = `<span class="pulsing-dot" style="background:#10b981;"></span><span>Inversion Status: Moderate / Transitional</span>`;
+      inversionBadge.innerHTML = `<span class="pulsing-dot" aria-hidden="true" style="background:#10b981;"></span><span>Inversion Status: Moderate / Transitional</span>`;
       inversionBadge.className = 'status-chip';
     }
   }
@@ -654,7 +682,7 @@ function renderRoutineTimeline(routine) {
     const item = document.createElement('div');
     item.className = 'timeline-item';
     item.innerHTML = `
-      <div class="timeline-dot">${icons[idx % icons.length]}</div>
+      <div class="timeline-dot" aria-hidden="true">${icons[idx % icons.length]}</div>
       <div class="timeline-card">
         <div class="timeline-head">
           <span class="time-window">${escapeHtml(step.timeWindow)}</span>
@@ -663,7 +691,7 @@ function renderRoutineTimeline(routine) {
         <h4 class="action-title">${escapeHtml(step.action)}</h4>
         <p class="action-why">${escapeHtml(step.why)}</p>
         <div class="action-emission">
-          <span>📉 <strong>Emissions & Health Impact:</strong> ${escapeHtml(step.emissionCut)}</span>
+          <span><span aria-hidden="true">📉</span> <strong>Emissions & Health Impact:</strong> ${escapeHtml(step.emissionCut)}</span>
         </div>
       </div>
     `;
@@ -694,7 +722,7 @@ function renderIndoorHacks(hacks) {
         <p>${escapeHtml(hack.instructions)}</p>
       </div>
       <div class="hack-impact">
-        🛡️ ${escapeHtml(hack.pmReduction)}
+        <span aria-hidden="true">🛡️</span> ${escapeHtml(hack.pmReduction)}
       </div>
     `;
     grid.appendChild(card);
@@ -930,7 +958,10 @@ function setupChatHandlers() {
 
 function askCopilot(question) {
   const chatTabBtn = document.querySelector('.tab-btn[data-tab="chat"]');
-  if (chatTabBtn) chatTabBtn.click();
+  if (chatTabBtn) {
+    chatTabBtn.click();
+    chatTabBtn.focus();
+  }
 
   appendChatMessage('user', question);
   replyToQuery(question);
@@ -982,7 +1013,7 @@ function appendChatMessage(sender, text, suggestedAction = null) {
   }
 
   bubble.innerHTML = `
-    <div class="chat-avatar">${sender === 'ai' ? 'AI' : 'You'}</div>
+    <div class="chat-avatar" aria-hidden="true">${sender === 'ai' ? 'AI' : 'You'}</div>
     <div class="chat-content">
       ${contentHtml}
     </div>
@@ -994,23 +1025,32 @@ function appendChatMessage(sender, text, suggestedAction = null) {
 
 // Community Pledge Compact
 function setupPledge() {
+  const form = document.getElementById('pledgeForm');
   const btn = document.getElementById('pledgeBtn');
   const input = document.getElementById('pledgeName');
   const counter = document.getElementById('pledgeCounter');
   if (!btn || !input || !counter) return;
 
-  btn.addEventListener('click', () => {
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
     const val = input.value.trim();
     if (!val) {
       alert('Please enter your colony, neighborhood, or building name!');
+      input.focus();
       return;
     }
 
     btn.innerText = 'Compact Signed! 🛡️';
     btn.disabled = true;
     input.disabled = true;
-    counter.innerHTML = `🛡️ <strong>1,429 families</strong> across 43 urban clusters have joined the winter compact. (Welcome, <em>${escapeHtml(val)}</em>!)`;
-  });
+    counter.innerHTML = `<span aria-hidden="true">🛡️</span> <strong>1,429 families</strong> across 43 urban clusters have joined the winter compact. (Welcome, <em>${escapeHtml(val)}</em>!)`;
+  };
+
+  if (form) {
+    form.addEventListener('submit', handleSubmit);
+  } else {
+    btn.addEventListener('click', handleSubmit);
+  }
 }
 
 // Utilities

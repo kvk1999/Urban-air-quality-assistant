@@ -4,6 +4,7 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const MAX_BODY_BYTES = 65536; // 64 KB limit
 
 // City reference catalog with realistic winter atmospheric smog factors & sensor basepoints
 const CITIES_DB = {
@@ -138,36 +139,27 @@ const CITIES_DB = {
 // Generative AI Decision Engine: Contextual Reasoning & Scenario Generation
 function generateAIPlan(params) {
   const { city, familyProfile, housingType, commuteMode, heatingSource, dailyHabits } = params;
-  const cityData = CITIES_DB[city.toLowerCase()] || CITIES_DB["delhi"];
+  const cityData = CITIES_DB[(city || "delhi").toLowerCase()] || CITIES_DB["delhi"];
   const cookingType = (dailyHabits && dailyHabits[0]) || 'gas_hob';
-  
-  const hasKids = familyProfile.includes("infant") || familyProfile.includes("child");
-  const hasElderly = familyProfile.includes("elderly") || familyProfile.includes("asthma");
+  const profileList = Array.isArray(familyProfile) ? familyProfile : [];
+
+  const hasKids = profileList.includes("infant") || profileList.includes("child");
+  const hasElderly = profileList.includes("elderly") || profileList.includes("asthma");
   const isVulnerable = hasKids || hasElderly;
-  
-  // =========================================================================
-  // QUANTITATIVE CALCULATION ENGINE:
-  // Dynamically computes daily & monthly CO2 footprints, energy costs,
-  // infiltration vulnerability, and PM2.5 exposure reductions from the 4 factors.
-  // =========================================================================
 
   // Factor 1: Housing Envelope Infiltration & Leakage
-  let housingLeakageFactor = 1.0;
   let housingName = "Independent House / Villa";
   let housingInfiltrationLabel = "Moderate (Standard Perimeter Leakage)";
-  let housingThermalLossKwH = 8.5; // daily thermal loss
+  let housingThermalLossKwH = 8.5;
   if (housingType === 'older_apartment') {
-    housingLeakageFactor = 1.55;
     housingName = "Older Apartment (Single-Glaze Glass)";
     housingInfiltrationLabel = "Severe (High Infiltration Stack-Effect via 2-3mm Frame Gaps)";
     housingThermalLossKwH = 14.2;
   } else if (housingType === 'modern_condo') {
-    housingLeakageFactor = 0.55;
     housingName = "Modern High-Rise (Double Glazed & Air-Tight)";
     housingInfiltrationLabel = "Low (Tight Envelope, High Sealed Retention)";
     housingThermalLossKwH = 4.2;
   } else if (housingType === 'ground_floor_flat') {
-    housingLeakageFactor = 1.35;
     housingName = "Ground Floor Unit (High Silt / Cold Ground Influx)";
     housingInfiltrationLabel = "High (Direct Street Silt, Road Particulate Infiltration)";
     housingThermalLossKwH = 11.8;
@@ -179,12 +171,12 @@ function generateAIPlan(params) {
   let commuteExposureHazard = "";
   let commuteName = "";
   if (commuteMode === 'car_solo') {
-    commuteDailyCO2 = 8.4; // kg CO2e / day (25-30 km round trip ICE car)
-    commuteMonthlyCost = 135; // fuel & parking
+    commuteDailyCO2 = 8.4;
+    commuteMonthlyCost = 135;
     commuteExposureHazard = "High in-cabin vehicular cabin soot ingestion unless 100% recirculation active";
     commuteName = "Solo ICE Car (Gasoline / Diesel)";
   } else if (commuteMode === 'two_wheeler') {
-    commuteDailyCO2 = 3.6; // kg CO2e / day
+    commuteDailyCO2 = 3.6;
     commuteMonthlyCost = 45;
     commuteExposureHazard = "Extreme direct respiratory exhaust inhalation along arterial traffic queues";
     commuteName = "Two-Wheeler / Motorbike";
@@ -193,7 +185,7 @@ function generateAIPlan(params) {
     commuteMonthlyCost = 35;
     commuteExposureHazard = "Low (Underground electric rail avoids ground street exhaust plumes)";
     commuteName = "Electric Metro / Rail / Bus Transit";
-  } else { // hybrid_wfh
+  } else {
     commuteDailyCO2 = 0.4;
     commuteMonthlyCost = 10;
     commuteExposureHazard = "Minimal direct traffic exposure";
@@ -206,21 +198,21 @@ function generateAIPlan(params) {
   let heatingIndoorPM25Hazard = "";
   let heatingName = "";
   if (heatingSource === 'wood_or_biomass') {
-    heatingDailyCO2 = 14.8; // kg CO2 / day
+    heatingDailyCO2 = 14.8;
     heatingMonthlyCost = 110;
     heatingIndoorPM25Hazard = "Extreme: Open combustion emits >850 µg/m³ peak soot & carcinogenic PAHs directly into living room";
     heatingName = "Fireplace / Wood Biomass (High Soot)";
   } else if (heatingSource === 'portable_radiant') {
-    heatingDailyCO2 = 7.2; // 2 kW heater running 6 hrs = 12 kWh = ~7.2 kg CO2 on coal-grid mix
+    heatingDailyCO2 = 7.2;
     heatingMonthlyCost = 85;
     heatingIndoorPM25Hazard = "No direct particulate emission, but high electrical draw & local air drying";
     heatingName = "Electric Radiant / Halogen Space Heater";
   } else if (heatingSource === 'electric_heatpump') {
-    heatingDailyCO2 = 2.1; // COP ~3.5
+    heatingDailyCO2 = 2.1;
     heatingMonthlyCost = 35;
     heatingIndoorPM25Hazard = "Zero direct emissions; filtered internal recirculated convection";
     heatingName = "Inverter Heat Pump (High Efficiency COP 3.5+)";
-  } else { // gas_boiler
+  } else {
     heatingDailyCO2 = 8.9;
     heatingMonthlyCost = 90;
     heatingIndoorPM25Hazard = "Low indoor soot if flued, but continuous NOx and methane fugitive emissions";
@@ -242,32 +234,28 @@ function generateAIPlan(params) {
     cookingMonthlyCost = 14;
     cookingIndoorToxicity = "Zero combustion emissions, zero NO2, only steam & cooking aroma";
     cookingName = "Electric Induction Cooktop (Combustion-Free)";
-  } else { // exhaust_range
+  } else {
     cookingDailyCO2 = 1.9;
     cookingMonthlyCost = 26;
     cookingIndoorToxicity = "Moderate: 70% of NO2 captured by chimney exhaust hood, residual ambient heat loss";
     cookingName = "Gas Hob + External Ducted Chimney Exhaust";
   }
 
-  // Baseline Aggregates
   const totalDailyBaselineCO2 = (commuteDailyCO2 + heatingDailyCO2 + cookingDailyCO2 + (housingThermalLossKwH * 0.45)).toFixed(1);
   const totalMonthlyBaselineCost = Math.round(commuteMonthlyCost + heatingMonthlyCost + cookingMonthlyCost + (housingThermalLossKwH * 30 * 0.08));
 
-  // Optimized Scenario Aggregates (using sustainable swaps: heat pump + induction + transit + weatherstripping)
-  const optimizedDailyCO2 = (1.2 + 2.1 + 0.7 + (4.2 * 0.45)).toFixed(1); // ~5.9 kg
+  const optimizedDailyCO2 = (1.2 + 2.1 + 0.7 + (4.2 * 0.45)).toFixed(1);
   const dailyCO2Saved = Math.max(0, (totalDailyBaselineCO2 - optimizedDailyCO2)).toFixed(1);
   const monthlyCO2Saved = Math.round(dailyCO2Saved * 30);
   const monthlyCostSaved = Math.max(25, totalMonthlyBaselineCost - (35 + 35 + 14 + 10));
 
-  // Exposure Reduction dynamic calculation
   let calculatedExposureReduction = 55;
-  if (housingType === 'older_apartment') calculatedExposureReduction += 15; // weatherstripping yields huge gain
+  if (housingType === 'older_apartment') calculatedExposureReduction += 15;
   if (heatingSource === 'wood_or_biomass') calculatedExposureReduction += 16;
   if (cookingType === 'gas_hob') calculatedExposureReduction += 8;
   if (commuteMode === 'two_wheeler' || commuteMode === 'car_solo') calculatedExposureReduction += 6;
   calculatedExposureReduction = Math.min(94, calculatedExposureReduction);
 
-  // 1. Customized Routine & Air Quality Safe Windows Tailored to the 4 Factors
   const routinePlan = [
     {
       timeWindow: "06:00 AM – 09:30 AM",
@@ -281,7 +269,7 @@ function generateAIPlan(params) {
     {
       timeWindow: "10:00 AM – 11:30 AM",
       phase: "Commute & School Transit Safe Passage",
-      action: commuteMode === 'car_solo' 
+      action: commuteMode === 'car_solo'
         ? "Shift to Public Rail/Metro, or Toggle Car In-Cabin Recirculation to Avoid Exhaust"
         : commuteMode === 'two_wheeler'
           ? "Equip Certified N95 Respirator with Airtight Nose Clip; Avoid Heavy Truck Lanes"
@@ -305,8 +293,8 @@ function generateAIPlan(params) {
           ? "Utilize High-Efficiency Induction Simmering with Lids Covered (Zero NO2 Emitted)"
           : "Turn Range Hood to Maximum 5 Minutes Before Lighting Burners",
       why: cookingIndoorToxicity,
-      emissionCut: cookingType === 'gas_hob' 
-        ? "Covered batch-cooking saves 25% cooking gas/LPG (0.5 kg CO2e)." 
+      emissionCut: cookingType === 'gas_hob'
+        ? "Covered batch-cooking saves 25% cooking gas/LPG (0.5 kg CO2e)."
         : "Induction draws 85% less direct thermal energy loss."
     },
     {
@@ -322,7 +310,6 @@ function generateAIPlan(params) {
     }
   ];
 
-  // 2. Indoor Hacks Tailored to Profile & Housing
   const indoorHacks = [
     {
       title: housingType === 'older_apartment' || housingType === 'ground_floor_flat'
@@ -345,7 +332,7 @@ function generateAIPlan(params) {
         ? "Kitchen NO2 Containment & Cross-Draft Isolation"
         : "Wet Dusting & Static Dust Attraction Protocol",
       cost: cookingType === 'gas_hob' ? "$5" : "$0",
-      materials: cookingType === 'gas_hob' 
+      materials: cookingType === 'gas_hob'
         ? "Kitchen swing-door seal, activated carbon recirculating filter sheet"
         : "Microfiber cloth dampened with dilute water + 2 drops vegetable glycerin or vinegar",
       instructions: cookingType === 'gas_hob'
@@ -362,13 +349,12 @@ function generateAIPlan(params) {
     }
   ];
 
-  // 3. Sustainable Alternatives & Lifestyle Swaps tailored directly to selected factors
   const sustainableAlternatives = [
     {
       factorCategory: "Winter Space Heating",
       currentHabit: `Current Setup: ${heatingName} (${heatingDailyCO2} kg CO2e/day, ~$${heatingMonthlyCost}/mo)`,
       ecoAlternative: "Inverter Mini-Split Heat Pump (COP > 3.5) with Heavy Thermal Window Curtains",
-      impactExplanation: heatingSource === 'wood_or_biomass' 
+      impactExplanation: heatingSource === 'wood_or_biomass'
         ? "Wood combustion generates 1,000x more fine particulate soot than clean electric heat pumps, releasing toxic PAHs directly into residential streets and living rooms."
         : "Inverter heat pumps deliver 3.5x more thermal heat per kWh of electricity compared to radiant strip heaters, drastically lowering power plant demand.",
       co2SavedKgMonth: Math.round((heatingDailyCO2 - 2.1) * 30),
@@ -402,7 +388,6 @@ function generateAIPlan(params) {
     }
   ];
 
-  // 4. Community Action & Collective Inversion Defense
   const communityInitiatives = [
     {
       title: "Community Sensor Mesh & Micro-Forecast Watch",
@@ -451,8 +436,8 @@ function generateAIPlan(params) {
 
 // Interactive GenAI Chat Query Handler
 function processAIChat(userMessage, context) {
-  const msg = userMessage.toLowerCase();
-  
+  const msg = String(userMessage || "").toLowerCase();
+
   if (msg.includes("plant") || msg.includes("greenery")) {
     return {
       reply: "Plants are fantastic secondary air purifiers! For severe winter smog, NASA Clean Air studies demonstrate that **Snake Plants (Sansevieria)**, **Spider Plants**, and **Peace Lilies** excel at absorbing volatile organics (VOCs like benzene and formaldehyde). However, remember: plants cannot replace mechanical HEPA or MERV-13 filters for dense particulate PM2.5 soot. Use plants to maintain natural humidity (40-50%) and eliminate stuffy carbon dioxide build-up while keeping your physical filtration active!",
@@ -491,6 +476,33 @@ function processAIChat(userMessage, context) {
   }
 }
 
+// Helper to read request body up to MAX_BODY_BYTES (64 KB)
+function readJsonBody(req, res, callback) {
+  let body = '';
+  let payloadTooLarge = false;
+
+  req.on('data', chunk => {
+    if (payloadTooLarge) return;
+    body += chunk;
+    if (Buffer.byteLength(body, 'utf8') > MAX_BODY_BYTES) {
+      payloadTooLarge = true;
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Payload Too Large' }));
+      req.destroy();
+    }
+  });
+
+  req.on('end', () => {
+    if (payloadTooLarge) return;
+    try {
+      const parsed = JSON.parse(body || '{}');
+      callback(null, parsed);
+    } catch (err) {
+      callback(err, null);
+    }
+  });
+}
+
 // HTTP Server
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
@@ -500,6 +512,17 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Comprehensive HTTP Security Headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' http://localhost:* https://*"
+  );
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -516,43 +539,38 @@ const server = http.createServer((req, res) => {
 
   // API: Generate GenAI custom action plan
   if (req.method === 'POST' && pathname === '/api/generate-plan') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const params = JSON.parse(body || '{}');
-        const plan = generateAIPlan(params);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(plan));
-      } catch (err) {
+    readJsonBody(req, res, (err, params) => {
+      if (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
+        return;
       }
+      const plan = generateAIPlan(params);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(plan));
     });
     return;
   }
 
   // API: GenAI Interactive Assistant Chat
   if (req.method === 'POST' && pathname === '/api/chat') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const { message, context } = JSON.parse(body || '{}');
-        const response = processAIChat(message, context);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(response));
-      } catch (err) {
+    readJsonBody(req, res, (err, payload) => {
+      if (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
+        return;
       }
+      const { message, context } = payload;
+      const response = processAIChat(message, context);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(response));
     });
     return;
   }
 
   // Static file serving from public/
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
-  
+
   if (!filePath.startsWith(PUBLIC_DIR)) {
     res.writeHead(403);
     res.end('Forbidden');
